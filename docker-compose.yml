@@ -1,0 +1,24 @@
+services:
+  main_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: smart_assistant_app
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://postgres:DevStack$2026@localhost:5432/postgres"
+      JWT_SECRET: "${JWT_SECRET:-dev-secret}"
+      NLP_URL: "http://nlp_service:8081/v1/nlp/embeddings"
+    depends_on:
+      - nlp_service
+ 
+  nlp_service:
+    build:
+      context: .
+      dockerfile: Dockerfile.nlp
+    container_name: smart_assistant_nlp
+    ports:
+      - "8081:8081"
+    environment:
+      JWT_SECRET: "${JWT_SECRET:-dev-secret}"

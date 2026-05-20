@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+WORKDIR /app
+ 
+# Install dependencies
+COPY requirements-nlp.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+ 
+# Copy NLP service files
+COPY nlp_app.py ./
+COPY nlp_engine.py ./
+ 
+# Expose port
+EXPOSE 8081
+ 
+CMD ["python", "nlp_app.py"]
