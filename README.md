@@ -1,10 +1,20 @@
 # 🤖 AI Service Agent
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Flask-API-black?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python" />
+  <img src="https://img.shields.io/badge/Flask-API-black?style=for-the-badge&logo=flask" />
   <img src="https://img.shields.io/badge/NLP-DialoGPT-green?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Status-MVP-success?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Database-PostgreSQL-blue?style=for-the-badge&logo=postgresql" />
+  <img src="https://img.shields.io/badge/ORM-SQLAlchemy-red?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react" />
+  <img src="https://img.shields.io/badge/Language-JavaScript-yellow?style=for-the-badge&logo=javascript" />
+  <img src="https://img.shields.io/badge/Status-MVP--Complete-success?style=for-the-badge" />
+</p>
+ 
+<p align="center">
+  <img src="https://img.shields.io/github/last-commit/PaulM-Tec/AI-Service-Agent?style=flat-square" />
+  <img src="https://img.shields.io/github/languages/top/PaulM-Tec/AI-Service-Agent?style=flat-square" />
+  <img src="https://img.shields.io/github/repo-size/PaulM-Tec/AI-Service-Agent?style=flat-square" />
 </p>
  
 > Intelligent conversational AI system integrating NLP, backend APIs, and recommendation engines to simulate real-world service automation.
@@ -82,18 +92,12 @@ Service health check endpoint
 ## 🧩 Core Components
  
 | Component        | Responsibility |
-
 |-----------------|--------------|
-
-| NLP Engine      | Processes user input and generates responses |
-
-| API Layer       | Handles HTTP requests and responses |
-
-| Recommender     | Produces data-driven suggestions |
-
-| ORM Models      | Manages database interaction |
-
-| Logging Layer   | Tracks conversational sessions |
+| **NLP Engine**   | Processes user input and generates responses |
+| **API Layer**    | Handles HTTP requests and responses |
+| **Recommender**  | Produces data-driven suggestions |
+| **ORM Models**   | Manages database interaction |
+| **Logging Layer**| Tracks conversational sessions |
  
 ---
  
@@ -171,5 +175,5 @@ This project evolves toward a **scalable AI platform** capable of integrating wi
  
 **Paul Munhamo**  
 
-AI & Software Engineer
+AI Enthusiast & Software Engineer
  
