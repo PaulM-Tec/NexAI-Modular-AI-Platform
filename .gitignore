@@ -1,0 +1,20 @@
+ # Python
+__pycache__/
+*.pyc
+ 
+# Virtual environments
+venv/
+env/
+ 
+# Environment variables
+.env
+ 
+# Jupyter
+.ipynb_checkpoints/
+ 
+# Logs
+*.log
+ 
+# Databases
+*.db
+*.sqlite3
