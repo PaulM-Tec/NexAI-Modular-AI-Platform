@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/ORM-SQLAlchemy-red?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react" />
   <img src="https://img.shields.io/badge/Language-JavaScript-yellow?style=for-the-badge&logo=javascript" />
-  <img src="https://img.shields.io/badge/Status-MVP--Complete-success?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Status-In--Progress-orange?style=for-the-badge" />
 </p>
  
 <p align="center">
