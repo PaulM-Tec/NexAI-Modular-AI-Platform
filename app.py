@@ -3,6 +3,9 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 from sqlalchemy import create_engine, MetaData, select
 from sqlalchemy.exc import SQLAlchemyError
+from dotenv import load_dotenv
+
+load_dotenv()
  
 # NEW imports for this step
 import requests
@@ -19,7 +22,7 @@ except ImportError:
 # -------------------------
 # Config (kept compatible)
 # -------------------------
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:DevStack$2026@localhost:5432/postgres")
+DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL, future=True)
  
 metadata = MetaData()
