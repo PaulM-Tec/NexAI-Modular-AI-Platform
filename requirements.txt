@@ -1,6 +1,9 @@
-Flask
-SQLAlchemy
+flask
+sqlalchemy
 psycopg2-binary
-PyJWT
+python-dotenv
 requests
 numpy
+transformers
+torch
+PyJWT
