@@ -1,9 +1,12 @@
 import os
+import sys
 from datetime import datetime
 from flask import Flask, request, jsonify
 from sqlalchemy import create_engine, MetaData, select
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
+
+sys.path.append(os.getcwd())
 
 load_dotenv()
  
@@ -13,11 +16,8 @@ import numpy as np
 import jwt
  
 # Import your NLP engine
-try:
-    from nlp_engine import get_response
-except ImportError:
-    def get_response(text: str, max_tokens: int = 60) -> str:
-        return f"Echo: {text}"
+
+from nlp_engine import get_response
  
 # -------------------------
 # Config (kept compatible)
