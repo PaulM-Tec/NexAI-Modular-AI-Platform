@@ -57,8 +57,8 @@ def get_response(user_input: str, max_tokens: int = 80) -> str:
  
     if intent == "BOOK_SERVICE":
         if not entities["date"] or not entities["time"]:
-            return "Sure—what date and time would you like the service?"
-        return f"Great—booking a service on {entities['date']} at {entities['time']}. Please confirm."
+            return "Sure — what date and time would you like the service?"
+        return f"Great — booking a service on {entities['date']} at {entities['time']}. Please confirm."
  
     if intent == "CANCEL_SERVICE":
         return "Okay, please provide the booking ID or date/time to cancel."
