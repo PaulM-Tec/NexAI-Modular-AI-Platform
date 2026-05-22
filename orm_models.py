@@ -1,30 +1,24 @@
 """
-SQLAlchemy ORM for AI Core project (FIXED DB CONSISTENCY)
+SQLAlchemy ORM for AI Core project (FINAL – DB CONSISTENT + BOOKING)
 """
  
 from __future__ import annotations
-import os
 from datetime import datetime
-from typing import Optional, List, Dict, Any
- 
+from typing import Optional, Dict, Any
 from pathlib import Path
  
 from sqlalchemy import (
     String,
     Integer,
-    ForeignKey,
     DateTime,
-    Float,
     Boolean,
     Text,
     JSON,
     create_engine,
-    Index,
-    UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
  
-# FORCE SAME DATABASE AS app.py (CRITICAL FIX)
+# SAME DATABASE AS app.py (CRITICAL)
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
  
@@ -41,20 +35,27 @@ class Base(DeclarativeBase):
  
 # ---------- Mixins ----------
 class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
  
  
 class SoftDeleteMixin:
-    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
  
  
-# ---------- Core Entities ----------
+# ---------- Core Tables ----------
+ 
 class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "users"
  
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     display_name: Mapped[Optional[str]] = mapped_column(String(255))
     role: Mapped[Optional[str]] = mapped_column(String(50))
     metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
@@ -65,7 +66,6 @@ class Session(Base, TimestampMixin, SoftDeleteMixin):
  
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
  
  
 class InteractionLog(Base, TimestampMixin, SoftDeleteMixin):
@@ -85,6 +85,18 @@ class Recommendation(Base, TimestampMixin, SoftDeleteMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
  
  
+# NEW TABLE (BOOKING FEATURE)
+class Booking(Base, TimestampMixin, SoftDeleteMixin):
+    __tablename__ = "bookings"
+ 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    service_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    booking_date: Mapped[str] = mapped_column(String(50), nullable=False)
+    booking_time: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="confirmed", nullable=False)
+ 
+ 
 # ---------- Helpers ----------
 def get_engine():
     return engine
@@ -98,19 +110,19 @@ def create_all():
     Base.metadata.create_all(engine)
  
  
-# Optional demo data
+# ---------- Optional Seed ----------
 def seed_demo_data():
     db = get_session()
     try:
-        demo_session = Session(user_id=1)
-        db.add(demo_session)
+        session = Session(user_id=1)
+        db.add(session)
         db.commit()
     finally:
         db.close()
  
  
-# Run directly
+# ---------- Run directly ----------
 if __name__ == "__main__":
     create_all()
     seed_demo_data()
-    print("DB initialized correctly")
+    print("DB initialized with Booking table")

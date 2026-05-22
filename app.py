@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 from datetime import datetime
 from flask import Flask, request, jsonify
 from sqlalchemy import create_engine, MetaData, Table
@@ -12,33 +13,25 @@ sys.path.append(os.getcwd())
  
 load_dotenv()
  
-# External libs
-import requests
-import numpy as np
-import jwt
- 
 # NLP
 from nlp_engine import get_response
  
 # -------------------------
-# Config (FINAL DB FIX)
+# Config
 # -------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
  
 engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
- 
 metadata = MetaData()
  
-# Load tables explicitly
+# Load tables
 Users = Table("users", metadata, autoload_with=engine)
 InteractionLogs = Table("interaction_logs", metadata, autoload_with=engine)
 Recommendations = Table("recommendations", metadata, autoload_with=engine)
+Bookings = Table("bookings", metadata, autoload_with=engine)
  
-print("Tables loaded successfully:", metadata.tables.keys())
- 
-NLP_URL = os.getenv("NLP_URL", "http://localhost:8081/v1/nlp/embeddings")
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
+print("Tables loaded:", metadata.tables.keys())
  
 app = Flask(__name__)
  
@@ -51,7 +44,7 @@ def health():
  
  
 # -------------------------
-# CHAT (FINAL FIXED)
+# CHAT (SMART + BOOKING)
 # -------------------------
 @app.post("/chat")
 def chat():
@@ -61,18 +54,80 @@ def chat():
     if not message:
         return jsonify({"error": "message is required"}), 400
  
-    # Default session (we improve later)
     session_id = data.get("session_id") or 1
  
-    # NLP response
+    # Default NLP response
     reply = get_response(message)
  
-    # FINAL CORRECT LOGGING (aligned with DB schema)
+    msg = message.lower()
+ 
+    # -------------------------
+    # BOOKING LOGIC
+    # -------------------------
+    if "book" in msg or "schedule" in msg:
+ 
+        # Service detection
+        if "oil" in msg:
+            service_type = "oil change"
+        elif "brake" in msg:
+            service_type = "brake check"
+        elif "tire" in msg or "tyre" in msg:
+            service_type = "tire rotation"
+        else:
+            service_type = "general service"
+ 
+        # Date detection
+        if "tomorrow" in msg:
+            booking_date = "tomorrow"
+        elif "today" in msg:
+            booking_date = "today"
+        else:
+            booking_date = "unspecified"
+ 
+        # Time extraction
+        time_match = re.search(r"\b(\d{1,2})(am|pm)?\b", msg)
+ 
+        if time_match:
+            hour = time_match.group(1)
+            period = time_match.group(2) or "am"
+            booking_time = f"{hour}{period}"
+        else:
+            booking_time = "unspecified"
+ 
+        try:
+            with engine.begin() as conn:
+                now = datetime.utcnow()
+ 
+                conn.execute(
+                    Bookings.insert().values(
+                        session_id=session_id,
+                        service_type=service_type,
+                        booking_date=booking_date,
+                        booking_time=booking_time,
+                        status="confirmed",
+                        created_at=now,
+                        updated_at=now,
+                        is_deleted=False
+                    )
+                )
+ 
+            reply = (
+		f"Booking Confirmed!\n"
+                f"Service: {service_type.title()}\n"
+                f"Date: {booking_date.title()}\n"
+                f"Time: {booking_time.upper()}"
+            )
+
+        except SQLAlchemyError as e:
+            print("BOOKING ERROR:", e)
+ 
+    # -------------------------
+    # LOGGING
+    # -------------------------
     try:
         with engine.begin() as conn:
             now = datetime.utcnow()
  
-            # incoming message
             conn.execute(
                 InteractionLogs.insert().values(
                     session_id=session_id,
@@ -84,7 +139,6 @@ def chat():
                 )
             )
  
-            # outgoing response
             conn.execute(
                 InteractionLogs.insert().values(
                     session_id=session_id,
@@ -92,7 +146,7 @@ def chat():
                     message=reply,
                     created_at=now,
                     updated_at=now,
-		    is_deleted=False
+                    is_deleted=False
                 )
             )
  
@@ -103,35 +157,31 @@ def chat():
  
  
 # -------------------------
-# LEGACY RECOMMEND
+# NEW: BOOKING HISTORY ENDPOINT
 # -------------------------
-@app.post("/recommend")
-def recommend_legacy():
-    data = request.get_json(silent=True) or {}
- 
-    user_id = data.get("user_id")
-    top_n = int(data.get("top_n", 3))
- 
-    if user_id is None:
-        return jsonify({"error": "user_id is required"}), 400
- 
-    recs = ["Oil change", "Brake check", "Tire rotation"][:top_n]
- 
+@app.get("/bookings/<int:session_id>")
+def get_bookings(session_id):
     try:
-        with engine.begin() as conn:
-            for r in recs:
-                conn.execute(
-                    Recommendations.insert().values(
-                        user_id=user_id,
-                        recommendation=r,
-                        created_at=datetime.utcnow()
-                    )
-                )
+        with engine.connect() as conn:
+            result = conn.execute(
+                Bookings.select().where(Bookings.c.session_id == session_id)
+            )
+            rows = result.fetchall()
  
-    except SQLAlchemyError as e:
-        return jsonify({"recommendations": recs, "log_error": str(e)}), 200
+            bookings = [
+                {
+                    "service": r.service_type,
+                    "date": r.booking_date,
+                    "time": r.booking_time,
+                    "status": r.status
+                }
+                for r in rows
+            ]
  
-    return jsonify({"recommendations": recs}), 200
+            return jsonify({"bookings": bookings}), 200
+ 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
  
  
 # -------------------------
