@@ -3,6 +3,7 @@ import sys
 import re
 from datetime import datetime
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
@@ -34,6 +35,7 @@ Bookings = Table("bookings", metadata, autoload_with=engine)
 print("Tables loaded:", metadata.tables.keys())
  
 app = Flask(__name__)
+CORS(app)
  
 # -------------------------
 # Health
