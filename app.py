@@ -2,23 +2,21 @@ import os
 import sys
 import re
 from datetime import datetime
-from flask import Flask, request, jsonify
+from pathlib import Path
+ 
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.exc import SQLAlchemyError
-from dotenv import load_dotenv
-from pathlib import Path
  
 # Fix import path
 sys.path.append(os.getcwd())
- 
-load_dotenv()
  
 # NLP
 from nlp_engine import get_response
  
 # -------------------------
-# Config
+# CONFIG
 # -------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
@@ -34,11 +32,19 @@ Bookings = Table("bookings", metadata, autoload_with=engine)
  
 print("Tables loaded:", metadata.tables.keys())
  
+# Flask app
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # FIX: allow frontend access
  
 # -------------------------
-# Health
+# SERVE FRONTEND (CRITICAL FOR MOBILE)
+# -------------------------
+@app.get("/")
+def serve_frontend():
+    return send_from_directory(".", "index.html")
+ 
+# -------------------------
+# HEALTH
 # -------------------------
 @app.get("/health")
 def health():
@@ -46,7 +52,7 @@ def health():
  
  
 # -------------------------
-# CHAT (SMART + BOOKING)
+# CHAT (SMART BOOKING)
 # -------------------------
 @app.post("/chat")
 def chat():
@@ -86,7 +92,7 @@ def chat():
         else:
             booking_date = "unspecified"
  
-        # Time extraction
+        # Time detection
         time_match = re.search(r"\b(\d{1,2})(am|pm)?\b", msg)
  
         if time_match:
@@ -114,12 +120,12 @@ def chat():
                 )
  
             reply = (
-		f"Booking Confirmed!\n"
+                f"Booking Confirmed!\n"
                 f"Service: {service_type.title()}\n"
                 f"Date: {booking_date.title()}\n"
                 f"Time: {booking_time.upper()}"
             )
-
+ 
         except SQLAlchemyError as e:
             print("BOOKING ERROR:", e)
  
@@ -130,6 +136,7 @@ def chat():
         with engine.begin() as conn:
             now = datetime.utcnow()
  
+            # Incoming
             conn.execute(
                 InteractionLogs.insert().values(
                     session_id=session_id,
@@ -141,6 +148,7 @@ def chat():
                 )
             )
  
+            # Outgoing
             conn.execute(
                 InteractionLogs.insert().values(
                     session_id=session_id,
@@ -159,23 +167,26 @@ def chat():
  
  
 # -------------------------
-# NEW: BOOKING HISTORY ENDPOINT
+# BOOKING HISTORY
 # -------------------------
 @app.get("/bookings/<int:session_id>")
 def get_bookings(session_id):
     try:
         with engine.connect() as conn:
             result = conn.execute(
-                Bookings.select().where(Bookings.c.session_id == session_id)
+                Bookings.select()
+                .where(Bookings.c.session_id == session_id)
+                .order_by(Bookings.c.created_at.desc())
             )
+ 
             rows = result.fetchall()
  
             bookings = [
                 {
-                    "service": r.service_type,
-                    "date": r.booking_date,
-                    "time": r.booking_time,
-                    "status": r.status
+                    "service": r.service_type.title(),
+                    "date": r.booking_date.title(),
+                    "time": r.booking_time.upper(),
+                    "status": r.status.upper()
                 }
                 for r in rows
             ]
@@ -187,7 +198,7 @@ def get_bookings(session_id):
  
  
 # -------------------------
-# MAIN
+# MAIN (MOBILE ENABLED)
 # -------------------------
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
