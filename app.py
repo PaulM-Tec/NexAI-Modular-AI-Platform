@@ -62,10 +62,39 @@ DB_PATH = BASE_DIR / "app.db"
 engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
 metadata = MetaData()
  
-Users = Table("users", metadata, autoload_with=engine)
-InteractionLogs = Table("interaction_logs", metadata, autoload_with=engine)
-Recommendations = Table("recommendations", metadata, autoload_with=engine)
-Bookings = Table("bookings", metadata, autoload_with=engine)
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
+ 
+Users = Table(
+    "users", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String),
+)
+ 
+InteractionLogs = Table(
+    "interaction_logs", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("session_id", String),
+    Column("direction", String),
+    Column("message", String),
+    Column("created_at", DateTime),
+    Column("updated_at", DateTime),
+    Column("is_deleted", Boolean),
+)
+ 
+metadata.create_all(engine)
+
+Bookings = Table(
+    "bookings", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("session_id", String),
+    Column("service_type", String),
+    Column("booking_date", String),
+    Column("booking_time", String),
+    Column("status", String),
+    Column("created_at", DateTime),
+    Column("updated_at", DateTime),
+    Column("is_deleted", Boolean),
+)
  
 # -------------------------
 # FLASK APP
