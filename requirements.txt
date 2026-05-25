@@ -1,11 +1,5 @@
 flask
+flask-cors
 sqlalchemy
-psycopg2-binary
 python-dotenv
-requests
-numpy
-transformers
-torch
-PyJWT
-scikit-learn
 openai
