@@ -1,22 +1,60 @@
 import os
 import sys
-import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
- 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.exc import SQLAlchemyError
+from dotenv import load_dotenv
+from openai import OpenAI
+ 
+# -------------------------
+# LOAD ENV VARIABLES
+# -------------------------
+load_dotenv()
+ 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+ 
+# -------------------------
+# GPT FUNCTION (CONTROLLED DOMAIN)
+# -------------------------
+def ask_gpt(user_message):
+ 
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are NexAI, an automotive assistant.\n"
+                        "You ONLY answer questions related to vehicles, cars, repairs, maintenance, and automotive systems.\n\n"
+                        "If the question is NOT related to cars or vehicles, respond with:\n"
+                        "'NexAI: I can only assist with vehicle-related queries.'\n\n"
+                        "Provide clear, concise and professional answers."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": user_message
+                }
+            ],
+            max_tokens=150
+        )
+ 
+        return response.choices[0].message.content
+ 
+    except Exception as e:
+        print("GPT ERROR:", e)
+        return "NexAI: I'm unable to retrieve that information right now."
+ 
  
 # Fix import path
 sys.path.append(os.getcwd())
  
-# NLP
-from nlp_engine import get_response
- 
 # -------------------------
-# CONFIG
+# DATABASE CONFIG
 # -------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
@@ -24,119 +62,179 @@ DB_PATH = BASE_DIR / "app.db"
 engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
 metadata = MetaData()
  
-# Load tables
 Users = Table("users", metadata, autoload_with=engine)
 InteractionLogs = Table("interaction_logs", metadata, autoload_with=engine)
 Recommendations = Table("recommendations", metadata, autoload_with=engine)
 Bookings = Table("bookings", metadata, autoload_with=engine)
  
-print("Tables loaded:", metadata.tables.keys())
- 
-# Flask app
+# -------------------------
+# FLASK APP
+# -------------------------
 app = Flask(__name__)
-CORS(app)  # FIX: allow frontend access
+CORS(app)
  
 # -------------------------
-# SERVE FRONTEND (CRITICAL FOR MOBILE)
+# SESSION MEMORY
+# -------------------------
+user_sessions = {}
+ 
+def generate_days():
+    days = []
+    current = datetime.now()
+ 
+    while len(days) < 5:
+        current += timedelta(days=1)
+        if current.weekday() <= 4:
+            days.append(current.strftime("%A"))
+ 
+    return days
+ 
+def generate_times():
+    return ["08:00", "10:00", "14:00", "16:00"]
+ 
+# -------------------------
+# ROUTES
 # -------------------------
 @app.get("/")
 def serve_frontend():
     return send_from_directory(".", "index.html")
  
-# -------------------------
-# HEALTH
-# -------------------------
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"}), 200
  
- 
 # -------------------------
-# CHAT (SMART BOOKING)
+# CHAT ENGINE
 # -------------------------
 @app.post("/chat")
 def chat():
-    data = request.get_json(silent=True) or {}
  
+    data = request.get_json(silent=True) or {}
     message = (data.get("message") or "").strip()
+ 
     if not message:
         return jsonify({"error": "message is required"}), 400
  
-    session_id = data.get("session_id") or 1
+    session_id = data.get("session_id") or "default"
  
-    # Default NLP response
-    reply = get_response(message)
+    if session_id not in user_sessions:
+        user_sessions[session_id] = {"state": None}
  
+    session = user_sessions[session_id]
     msg = message.lower()
  
-    # -------------------------
-    # BOOKING LOGIC
-    # -------------------------
-    if "book" in msg or "schedule" in msg:
+    reply = None
  
-        # Service detection
-        if "oil" in msg:
-            service_type = "oil change"
-        elif "brake" in msg:
-            service_type = "brake check"
-        elif "tire" in msg or "tyre" in msg:
-            service_type = "tire rotation"
-        else:
-            service_type = "general service"
+    # =====================================================
+    # 1. INTELLIGENCE (CONTROLLED)
+    # =====================================================
+    if any(msg.startswith(q) for q in ["why", "what", "how"]) and "how much" not in msg:
  
-        # Date detection
-        if "tomorrow" in msg:
-            booking_date = "tomorrow"
-        elif "today" in msg:
-            booking_date = "today"
-        else:
-            booking_date = "unspecified"
- 
-        # Time detection
-        time_match = re.search(r"\b(\d{1,2})(am|pm)?\b", msg)
- 
-        if time_match:
-            hour = time_match.group(1)
-            period = time_match.group(2) or "am"
-            booking_time = f"{hour}{period}"
-        else:
-            booking_time = "unspecified"
- 
-        try:
-            with engine.begin() as conn:
-                now = datetime.utcnow()
- 
-                conn.execute(
-                    Bookings.insert().values(
-                        session_id=session_id,
-                        service_type=service_type,
-                        booking_date=booking_date,
-                        booking_time=booking_time,
-                        status="confirmed",
-                        created_at=now,
-                        updated_at=now,
-                        is_deleted=False
-                    )
-                )
- 
+        if any(term in msg for term in ["brake", "braking", "brakes"]):
             reply = (
-                f"Booking Confirmed!\n"
-                f"Service: {service_type.title()}\n"
-                f"Date: {booking_date.title()}\n"
-                f"Time: {booking_time.upper()}"
+                "NexAI: Braking systems work by applying friction through brake pads to slow the vehicle.\n\n"
+                "If performance is reduced, a brake inspection is recommended."
             )
  
-        except SQLAlchemyError as e:
-            print("BOOKING ERROR:", e)
+        elif "oil" in msg:
+            reply = (
+                "NexAI: Engine oil lubricates moving components and reduces heat and friction.\n\n"
+                "Regular oil changes are essential for engine health."
+            )
  
-    # -------------------------
+    # =====================================================
+    # 2. DOMAIN RICHNESS
+    # =====================================================
+    elif any(word in msg for word in ["price", "cost", "how much"]):
+ 
+        reply = (
+            "NexAI: Estimated service costs:\n\n"
+            "- Oil Change: R800 – R1,500\n"
+            "- Brake Service: R2,500 – R5,500\n"
+            "- General Service: R1,200 – R3,000\n\n"
+            "Would you like to book a service?"
+        )
+ 
+    elif any(word in msg for word in ["recommend", "suggest", "advice"]):
+ 
+        reply = (
+            "NexAI: Maintenance recommendations:\n\n"
+            "- Oil change every 5,000 – 10,000 km\n"
+            "- Brake inspection every 10,000 km\n"
+            "- Tire rotation every 8,000 km\n\n"
+            "Would you like to schedule a service?"
+        )
+ 
+    # =====================================================
+    # 3. BOOKING FLOW
+    # =====================================================
+    elif any(x in msg for x in ["book", "service", "fix", "maintenance"]):
+ 
+        if "brake" in msg:
+            service_type = "Brake Service"
+        elif "oil" in msg:
+            service_type = "Oil Change"
+        else:
+            service_type = "General Service"
+ 
+        session["service_type"] = service_type
+ 
+        days = generate_days()
+        session["state"] = "awaiting_date"
+        session["days"] = days
+ 
+        day_list = "\n".join([f"{i+1}. {d}" for i, d in enumerate(days)])
+ 
+        reply = (
+            f"NexAI: I understand you need a {service_type.lower()}.\n\n"
+            f"Please choose a service date:\n\n{day_list}"
+        )
+ 
+    elif session.get("state") == "awaiting_date" and message.isdigit():
+ 
+        index = int(message) - 1
+ 
+        if 0 <= index < len(session["days"]):
+            selected_day = session["days"][index]
+            session["selected_day"] = selected_day
+            session["state"] = "awaiting_time"
+ 
+            times = generate_times()
+            session["times"] = times
+ 
+            time_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(times)])
+ 
+            reply = f"NexAI: Available time slots for {selected_day}:\n\n{time_list}"
+        else:
+            reply = "NexAI: Invalid selection."
+ 
+    elif session.get("state") == "awaiting_time" and message.isdigit():
+ 
+        index = int(message) - 1
+ 
+        if 0 <= index < len(session["times"]):
+ 
+            selected_time = session["times"][index]
+            selected_day = session["selected_day"]
+ 
+            session["state"] = None
+ 
+            reply = f"NexAI: Booking confirmed!\n\n{selected_day} at {selected_time}"
+ 
+    # =====================================================
+    # 4. GPT FALLBACK (CONTROLLED DOMAIN)
+    # =====================================================
+    if reply is None:
+        gpt_response = ask_gpt(message)
+        reply = f"NexAI: {gpt_response}"
+ 
+    # =====================================================
     # LOGGING
-    # -------------------------
+    # =====================================================
     try:
         with engine.begin() as conn:
             now = datetime.utcnow()
  
-            # Incoming
             conn.execute(
                 InteractionLogs.insert().values(
                     session_id=session_id,
@@ -148,7 +246,6 @@ def chat():
                 )
             )
  
-            # Outgoing
             conn.execute(
                 InteractionLogs.insert().values(
                     session_id=session_id,
@@ -160,45 +257,14 @@ def chat():
                 )
             )
  
-    except SQLAlchemyError as e:
+    except Exception as e:
         print("LOG ERROR:", e)
  
     return jsonify({"response": reply}), 200
  
  
 # -------------------------
-# BOOKING HISTORY
-# -------------------------
-@app.get("/bookings/<int:session_id>")
-def get_bookings(session_id):
-    try:
-        with engine.connect() as conn:
-            result = conn.execute(
-                Bookings.select()
-                .where(Bookings.c.session_id == session_id)
-                .order_by(Bookings.c.created_at.desc())
-            )
- 
-            rows = result.fetchall()
- 
-            bookings = [
-                {
-                    "service": r.service_type.title(),
-                    "date": r.booking_date.title(),
-                    "time": r.booking_time.upper(),
-                    "status": r.status.upper()
-                }
-                for r in rows
-            ]
- 
-            return jsonify({"bookings": bookings}), 200
- 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
- 
- 
-# -------------------------
-# MAIN (MOBILE ENABLED)
+# MAIN
 # -------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)
