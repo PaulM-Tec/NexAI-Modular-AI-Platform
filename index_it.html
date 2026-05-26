@@ -2,24 +2,20 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
- 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
 body {
   margin:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
   background:#1e1e2f;
   font-family:Arial;
 }
  
 .app {
-  width:90%;
+  width:95%;
   max-width:420px;
-  height:75vh;
+  margin:20px auto;
+  height:80vh;
   display:flex;
   flex-direction:column;
   background:#252542;
@@ -27,7 +23,7 @@ body {
 }
  
 .header {
-  padding:10px;
+  padding:12px;
   text-align:center;
   background:#111;
   color:#00d4ff;
@@ -43,11 +39,10 @@ body {
  
 .msg {
   max-width:70%;
-  padding:8px;
+  padding:10px;
   margin:4px 0;
-  border-radius:8px;
+  border-radius:10px;
   font-size:13px;
-  word-break:break-word;
 }
  
 .user {
@@ -63,20 +58,20 @@ body {
  
 .input {
   display:flex;
-  padding:6px;
+  padding:8px;
   background:#111;
 }
  
 input {
   flex:1;
-  padding:6px;
+  padding:8px;
   background:#333;
   color:white;
   border:none;
 }
  
 button {
-  padding:6px;
+  padding:8px;
   background:#0078d7;
   color:white;
   border:none;
@@ -88,32 +83,32 @@ button {
  
 <div class="app">
 <div class="header">🖥️ NexAI IT</div>
+ 
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg">
+<input id="msg" placeholder="Ask IT (Exchange, Azure, App Registrations...)" />
 <button onclick="send()">Send</button>
 </div>
 </div>
  
 <script>
- 
 const chat = document.getElementById("chat");
 const msg = document.getElementById("msg");
+const session = Date.now();
  
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
-  d.innerHTML=type==="bot"?marked.parse(text):text;
+  d.innerHTML = type==="bot" ? marked.parse(text) : text;
   chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
 }
  
 function send(){
-  const text=msg.value.trim();
-  if(!text) return;
+  let t = msg.value.trim();
+  if(!t) return;
  
-  add(text,"user");
+  add(t,"user");
  
   const thinking=document.createElement("div");
   thinking.className="msg bot";
@@ -124,27 +119,19 @@ function send(){
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
-        message:text,
-        module:"it"   // FIX
+      message:t,
+      module:"it",
+      session_id:session
     })
   })
   .then(r=>r.json())
   .then(d=>{
     thinking.remove();
     add(d.response,"bot");
-  })
-  .catch(()=>{
-    thinking.remove();
-    add("Error contacting server","bot");
   });
  
   msg.value="";
 }
- 
-msg.addEventListener("keydown",e=>{
-  if(e.key==="Enter") send();
-});
- 
 </script>
  
 </body>

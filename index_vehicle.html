@@ -2,43 +2,33 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
- 
-<!-- FIXED SCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
 body {
   margin:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
   background:#f0f2f5;
   font-family:Arial;
 }
  
-/* CENTERED APP PANEL */
 .app {
-  width:92%;
+  width:95%;
   max-width:420px;
-  height:75vh;
+  margin:20px auto;
+  height:80vh;
   display:flex;
   flex-direction:column;
   background:white;
   border-radius:12px;
-  box-shadow:0 4px 20px rgba(0,0,0,0.15);
 }
  
-/* HEADER */
 .header {
   padding:12px;
   text-align:center;
   background:#0078d7;
   color:white;
-  font-weight:bold;
 }
  
-/* CHAT AREA */
 .chat {
   flex:1;
   overflow-y:auto;
@@ -47,50 +37,24 @@ body {
   flex-direction:column;
 }
  
-/* MESSAGE STYLE */
 .msg {
   max-width:70%;
   padding:10px;
-  margin:5px 0;
+  margin:4px 0;
   border-radius:10px;
   font-size:13px;
-  line-height:1.4;
-  word-break:break-word;
 }
  
-/* USER MESSAGE */
 .user {
   background:#0078d7;
   color:white;
   align-self:flex-end;
 }
  
-/* BOT MESSAGE */
 .bot {
   background:#e5e5e5;
-  color:black;
 }
  
-/* STRUCTURED TEXT FIX */
-.msg h1, .msg h2, .msg h3 {
-  margin:5px 0;
-  font-size:14px;
-}
- 
-.msg p {
-  margin:4px 0;
-}
- 
-.msg ul {
-  margin:5px 0;
-  padding-left:16px;
-}
- 
-.msg li {
-  margin:3px 0;
-}
- 
-/* INPUT BAR */
 .input {
   display:flex;
   padding:8px;
@@ -100,22 +64,13 @@ body {
 input {
   flex:1;
   padding:8px;
-  border:1px solid #ccc;
 }
  
 button {
-  padding:8px 12px;
+  padding:8px;
   background:#0078d7;
   color:white;
   border:none;
-}
- 
-/* MOBILE FIX */
-@media(max-width:600px){
-  .app {
-    height:80vh;
-    width:95%;
-  }
 }
 </style>
 </head>
@@ -123,78 +78,61 @@ button {
 <body>
  
 <div class="app">
- 
 <div class="header">🚗 NexAI Vehicle</div>
  
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg" placeholder="Describe your issue..." />
+<input id="msg" placeholder="Describe your issue (e.g. oil leak, book service)" />
 <button onclick="send()">Send</button>
 </div>
- 
 </div>
  
 <script>
- 
 const chat = document.getElementById("chat");
 const msg = document.getElementById("msg");
+const session = Date.now();
  
-/* ADD MESSAGE */
 function add(text,type){
-  const div = document.createElement("div");
-  div.className = "msg " + type;
- 
-  try {
-    div.innerHTML = type === "bot"
-      ? marked.parse(text)
-      : text;
-  } catch {
-    div.innerText = text;
-  }
- 
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  const d=document.createElement("div");
+  d.className="msg "+type;
+  d.innerHTML = type==="bot" ? marked.parse(text) : text;
+  chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
 }
  
-/* SEND MESSAGE */
 function send(){
-  const text = msg.value.trim();
-  if(!text) return;
+  let t = msg.value.trim();
+  if(!t) return;
  
-  add(text,"user");
+  add(t,"user");
  
-  const thinking = document.createElement("div");
-  thinking.className = "msg bot";
-  thinking.innerText = "Thinking...";
+  const thinking=document.createElement("div");
+  thinking.className="msg bot";
+  thinking.innerText="Thinking...";
   chat.appendChild(thinking);
  
   fetch("/chat",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
-      message: text,
-      module: "vehicle"   // CRITICAL FIX
+      message:t,
+      module:"vehicle",
+      session_id:session
     })
   })
-  .then(res => res.json())
-  .then(data => {
+  .then(r=>r.json())
+  .then(d=>{
     thinking.remove();
-    add(data.response,"bot");
-  })
-  .catch(() => {
-    thinking.remove();
-    add("Error contacting server","bot");
+    add(d.response,"bot");
   });
  
   msg.value="";
 }
  
-/* ENTER KEY SUPPORT */
 msg.addEventListener("keydown",e=>{
   if(e.key==="Enter") send();
 });
- 
 </script>
  
 </body>
