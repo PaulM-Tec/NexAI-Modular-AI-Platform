@@ -3,7 +3,8 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-https://cdn.jsdelivr.net/npm/marked/marked.min.js
+<!-- FIXED SCRIPT -->
+https://cdn.jsdelivr.net/npm/marked/marked.min.jsscript>
  
 <style>
 body {
@@ -83,16 +84,13 @@ button {
 <body>
  
 <div class="app">
- 
 <div class="header">🖥️ NexAI IT</div>
- 
 <div id="chat" class="chat"></div>
  
 <div class="input">
 <input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)" />
 <button onclick="send()">Send</button>
 </div>
- 
 </div>
  
 <script>
@@ -104,7 +102,13 @@ const session = Date.now();
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
-  d.innerHTML = type==="bot" ? marked.parse(text) : text;
+ 
+  try {
+    d.innerHTML = type==="bot" ? marked.parse(text) : text;
+  } catch {
+    d.textContent = text;
+  }
+ 
   chat.appendChild(d);
   chat.scrollTop=chat.scrollHeight;
 }
@@ -142,10 +146,10 @@ function send(){
   msgInput.value="";
 }
  
-/* FIX ENTER KEY */
+/* ENTER FIX */
 document.addEventListener("DOMContentLoaded", () => {
   msgInput.addEventListener("keydown", function(e){
-    if(e.key === "Enter"){
+    if(e.key==="Enter"){
       e.preventDefault();
       send();
     }
