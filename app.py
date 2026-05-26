@@ -1,27 +1,21 @@
 import os
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
  
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
- 
-from sqlalchemy import (
-    create_engine, MetaData, Table,
-    Column, Integer, String, DateTime
-)
- 
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime
 from dotenv import load_dotenv
 from openai import OpenAI
  
 # -------------------------
-# ENV
+# ENV CONFIG
 # -------------------------
 load_dotenv()
- 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 # -------------------------
-# GPT FUNCTION (FIXED)
+# GPT FUNCTION (ADMIN-LEVEL FIX)
 # -------------------------
 def ask_gpt(message):
     try:
@@ -31,17 +25,29 @@ def ask_gpt(message):
                 {
                     "role": "system",
                     "content": (
-                        "You are NexAI.\n"
-                        "Specialised in:\n"
-                        "1. Vehicle services\n"
-                        "2. Enterprise IT (Exchange, Azure AD, Microsoft 365)\n\n"
-                        "Respond clearly, practically, and structured.\n"
-                        "Avoid generic explanations."
+                        "You are NexAI, an Enterprise IT Admin Assistant.\n\n"
+ 
+                        "Context:\n"
+                        "- The user is a Global Administrator\n"
+                        "- Works in Azure AD, Exchange Online, Hybrid environment\n"
+                        "- Uses Exchange Admin Center and PowerShell\n"
+                        "- DOES NOT access mailboxes via Outlook\n\n"
+ 
+                        "Rules:\n"
+                        "- Respond from backend/admin perspective ONLY\n"
+                        "- Prefer Exchange Admin Center steps or PowerShell\n"
+                        "- DO NOT give Outlook or end-user instructions\n"
+                        "- Keep answers concise, structured, and practical\n\n"
+ 
+                        "Style:\n"
+                        "- Use steps or commands\n"
+                        "- Be precise, not generic\n"
+                        "- Sound like a senior IT engineer"
                     )
                 },
                 {"role": "user", "content": message}
             ],
-            max_tokens=180
+            max_tokens=220
         )
  
         return response.choices[0].message.content
@@ -51,7 +57,7 @@ def ask_gpt(message):
         return "NexAI: Unable to process request right now."
  
 # -------------------------
-# DATABASE (LIGHT)
+# DATABASE (LIGHTWEIGHT)
 # -------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
@@ -67,26 +73,26 @@ InteractionLogs = Table(
     Column("created_at", DateTime)
 )
  
-# create table safely
 metadata.create_all(engine)
  
 # -------------------------
-# APP
+# APP INIT
 # -------------------------
 app = Flask(__name__)
 CORS(app)
  
 # -------------------------
-# ROUTER (CLEAN + SAFE)
+# ROUTER (IMPROVED)
 # -------------------------
 def detect_module(message):
  
     msg = message.lower()
  
     if any(keyword in msg for keyword in [
-        "password", "mailbox", "exchange", "outlook",
-        "azure", "aad", "vpn", "network",
-        "tenant", "distribution", "dl"
+        "exchange", "mailbox", "delegate", "permission",
+        "aad", "azure", "tenant", "outlook",
+        "distribution", "dl", "group", "vpn",
+        "network", "login", "password"
     ]):
         return "it"
  
@@ -99,51 +105,53 @@ def handle_vehicle(message):
  
     msg = message.lower()
  
-    # Controlled responses
     if "price" in msg or "cost" in msg:
         return (
             "Service pricing:\n\n"
-            "- Oil change: R800 – R1500\n"
-            "- Brake service: R2500 – R5500\n"
-            "- General service: R1200 – R3000"
+            "- Oil Change: R800 – R1500\n"
+            "- Brake Service: R2500 – R5500\n"
+            "- General Service: R1200 – R3000"
         )
  
     if "book" in msg:
-        return "Booking flow is available. Please specify service type."
+        return "Booking flow available. Please specify service type."
  
-    # GPT fallback (IMPORTANT)
     return ask_gpt(message)
  
 # -------------------------
-# IT MODULE (FIXED LOGIC)
+# IT MODULE (ENTERPRISE FIX)
 # -------------------------
 def handle_it(message):
  
     msg = message.lower()
  
-    # ONLY very specific rules
-    if "create distribution group" in msg:
+    # VERY TARGETED RESPONSES (ONLY WHERE NECESSARY)
+ 
+    if "distribution group" in msg:
         return (
-            "Use Exchange Online PowerShell:\n\n"
+            "Exchange Admin Center:\n"
+            "Recipients → Groups → Add Distribution Group\n\n"
+            "PowerShell:\n"
             "New-DistributionGroup -Name \"GroupName\" "
             "-PrimarySmtpAddress group@company.com"
         )
  
     if "enable mailbox" in msg:
         return (
-            "Hybrid mailbox command:\n\n"
+            "Hybrid Setup:\n\n"
             "Enable-RemoteMailbox -Identity user "
             "-RemoteRoutingAddress user@tenant.mail.onmicrosoft.com"
         )
  
     if "reset password" in msg:
         return (
-            "Reset via Azure AD:\n\n"
-            "- Azure Portal → Users → Reset Password\n"
-            "- Or use PowerShell (Set-AzureADUserPassword)"
+            "Azure AD:\n\n"
+            "Portal → Users → Reset Password\n\n"
+            "OR use PowerShell:\n"
+            "Set-AzureADUserPassword"
         )
  
-    # EVERYTHING ELSE → GPT (CRITICAL FIX)
+    # EVERYTHING ELSE USES GPT (CRITICAL FIX)
     return ask_gpt(message)
  
 # -------------------------
@@ -175,6 +183,19 @@ def chat():
         reply = handle_it(message)
     else:
         reply = handle_vehicle(message)
+ 
+    # LOGGING (optional safe)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                InteractionLogs.insert().values(
+                    session_id=session_id,
+                    message=message,
+                    created_at=datetime.utcnow()
+                )
+            )
+    except Exception as e:
+        print("LOG ERROR:", e)
  
     return jsonify({"response": reply})
  
