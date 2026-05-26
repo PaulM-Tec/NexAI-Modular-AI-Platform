@@ -3,8 +3,9 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-<!-- FIXED SCRIPT (THIS IS THE KEY FIX) -->
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min
+<!-- CORRECT SCRIPT -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+ 
 <style>
 body {
   margin:0;
@@ -12,7 +13,6 @@ body {
   font-family:Arial;
 }
  
-/* CENTERED PANEL */
 .app {
   width:95%;
   max-width:420px;
@@ -39,7 +39,6 @@ body {
   flex-direction:column;
 }
  
-/* MESSAGE */
 .msg {
   max-width:70%;
   padding:10px;
@@ -47,7 +46,7 @@ body {
   border-radius:10px;
   font-size:13px;
   line-height:1.4;
-  white-space: pre-line;   /* FIX FORMATTING */
+  white-space: pre-line;
 }
  
 .user {
@@ -59,15 +58,6 @@ body {
 .bot {
   background:#2d2d44;
   color:white;
-}
- 
-/* CLEAN STRUCTURE */
-.msg ul {
-  padding-left:16px;
-}
- 
-.msg li {
-  margin:3px 0;
 }
  
 .input {
@@ -114,7 +104,6 @@ const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
 const session = Date.now();
  
-/* ADD MESSAGE */
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
@@ -129,7 +118,6 @@ function add(text,type){
   chat.scrollTop=chat.scrollHeight;
 }
  
-/* SEND */
 function send(){
   const t = msgInput.value.trim();
   if(!t) return;
@@ -163,7 +151,6 @@ function send(){
   msgInput.value="";
 }
  
-/* ENTER FIX */
 msgInput.addEventListener("keydown", function(e){
   if(e.key === "Enter"){
     e.preventDefault();
