@@ -1,53 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
+ 
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
 <title>NexAI Vehicle Assistant</title>
  
-https://cdn.jsdelivr.net/npm/marked/marked.min.js>
+<!-- FIXED SCRIPT (THIS WAS YOUR BREAKING ISSUE) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
  
 body {
     margin: 0;
     font-family: Arial;
-    background: #f4f4f4;
+    background: #f0f2f5;
+    display: flex;
+    justify-content: center;
 }
  
-/* SAME STRUCTURE AS IT UI */
-.wrapper {
-    max-width: 850px;
-    margin: auto;
-    height: 100vh;
+/* COMPACT AI PANEL (LIKE BEFORE) */
+.app {
+    width: 100%;
+    max-width: 700px;
+    height: 95vh;
     display: flex;
     flex-direction: column;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
 }
  
 /* HEADER */
 .header {
     background: #0078d7;
     color: white;
-    padding: 12px;
     text-align: center;
+    padding: 12px;
     font-weight: bold;
 }
  
 /* CHAT AREA */
-.chatbox {
+.chat {
     flex: 1;
     overflow-y: auto;
     padding: 15px;
 }
  
 /* MESSAGES */
-.message {
-    margin: 10px 0;
+.msg {
     padding: 12px;
-    border-radius: 10px;
-    max-width: 75%;
-    line-height: 1.4;
+    margin: 10px 0;
+    border-radius: 12px;
+    max-width: 80%;
 }
  
 .user {
@@ -57,38 +63,36 @@ body {
 }
  
 .bot {
-    background: #e9e9e9;
+    background: #e6e6e6;
     color: black;
 }
  
-/* INPUT BAR */
-.input-area {
+/* INPUT SECTION */
+.input {
     display: flex;
     padding: 10px;
-    background: white;
+    border-top: 1px solid #ddd;
 }
  
-input {
+.input input {
     flex: 1;
-    padding: 12px;
+    padding: 10px;
+    border: 1px solid #ccc;
 }
  
-button {
-    padding: 12px;
+.input button {
+    padding: 10px;
     background: #0078d7;
     color: white;
     border: none;
 }
  
 /* MOBILE FIX */
-@media (max-width: 600px) {
-    .wrapper {
+@media(max-width:600px) {
+    .app {
         max-width: 100%;
         height: 100vh;
-    }
- 
-    .message {
-        max-width: 90%;
+        border-radius: 0;
     }
 }
  
@@ -97,67 +101,65 @@ button {
  
 <body>
  
-<div class="wrapper">
+<div class="app">
  
-    <div class="header">🚗 NexAI Vehicle Assistant</div>
+<div class="header">🚗 NexAI Vehicle Assistant</div>
  
-    <div id="chat" class="chatbox"></div>
+<div id="chat" class="chat"></div>
  
-    <div class="input-area">
-        <input id="msg" placeholder="Ask about vehicle services..." />
-        <button onclick="sendMessage()">Send</button>
-    </div>
+<div class="input">
+    <input id="msg" placeholder="Ask about your vehicle..." />
+    <button onclick="send()">Send</button>
+</div>
  
 </div>
  
 <script>
  
-let sessionId = Date.now();
+let session = Date.now();
  
 /* ADD MESSAGE */
-function addMessage(text, cls) {
-    let div = document.createElement("div");
-    div.className = "message " + cls;
+function add(text, type) {
+    const div = document.createElement("div");
+    div.className = "msg " + type;
  
-    div.innerHTML =
-        cls === "bot"
+    div.innerHTML = type === "bot"
         ? marked.parse(text)
         : text;
  
-    document.getElementById("chat").appendChild(div);
+    const chat = document.getElementById("chat");
+    chat.appendChild(div);
  
-    document.getElementById("chat").scrollTop =
-        document.getElementById("chat").scrollHeight;
+    chat.scrollTop = chat.scrollHeight;
 }
  
-/* SEND */
-function sendMessage() {
+/* SEND MESSAGE */
+function send() {
     const input = document.getElementById("msg");
     const text = input.value.trim();
  
     if (!text) return;
  
-    addMessage(text, "user");
+    add(text, "user");
  
     fetch("/chat", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             message: text,
-            session_id: sessionId
+            session_id: session
         })
     })
     .then(res => res.json())
-    .then(data => addMessage(data.response, "bot"));
+    .then(data => add(data.response, "bot"))
+    .catch(() => add("Error contacting server", "bot"));
  
     input.value = "";
 }
  
 /* ENTER KEY FIX */
-document.getElementById("msg").addEventListener("keypress", function(e) {
-    if (e.key === "Enter") {
-        sendMessage();
-    }
+document.getElementById("msg").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") send();
 });
  
 </script>
