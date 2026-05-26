@@ -2,25 +2,29 @@ import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+ 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from sqlalchemy import create_engine, MetaData, Table
-from sqlalchemy.exc import SQLAlchemyError
+ 
+from sqlalchemy import (
+    create_engine, MetaData, Table,
+    Column, Integer, String, DateTime, Boolean
+)
+ 
 from dotenv import load_dotenv
 from openai import OpenAI
  
 # -------------------------
-# LOAD ENV VARIABLES
+# LOAD ENV
 # -------------------------
 load_dotenv()
  
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 # -------------------------
-# GPT FUNCTION (CONTROLLED DOMAIN)
+# GPT FUNCTION (RESTRICTED DOMAIN)
 # -------------------------
-def ask_gpt(user_message):
- 
+def ask_gpt(message):
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -28,17 +32,15 @@ def ask_gpt(user_message):
                 {
                     "role": "system",
                     "content": (
-                        "You are NexAI, an automotive assistant.\n"
-                        "You ONLY answer questions related to vehicles, cars, repairs, maintenance, and automotive systems.\n\n"
-                        "If the question is NOT related to cars or vehicles, respond with:\n"
-                        "'NexAI: I can only assist with vehicle-related queries.'\n\n"
-                        "Provide clear, concise and professional answers."
+                        "You are NexAI, a professional enterprise assistant.\n"
+                        "You only answer questions related to:\n"
+                        "- Automotive services\n"
+                        "- Enterprise IT (Azure AD, Exchange, Microsoft 365)\n\n"
+                        "If unrelated, say: 'I can only assist with vehicle or IT queries.'\n"
+                        "Keep answers concise, structured, and practical."
                     )
                 },
-                {
-                    "role": "user",
-                    "content": user_message
-                }
+                {"role": "user", "content": message}
             ],
             max_tokens=150
         )
@@ -47,11 +49,7 @@ def ask_gpt(user_message):
  
     except Exception as e:
         print("GPT ERROR:", e)
-        return "NexAI: I'm unable to retrieve that information right now."
- 
- 
-# Fix import path
-sys.path.append(os.getcwd())
+        return "NexAI: Unable to retrieve information right now."
  
 # -------------------------
 # DATABASE CONFIG
@@ -61,8 +59,6 @@ DB_PATH = BASE_DIR / "app.db"
  
 engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
 metadata = MetaData()
- 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
  
 Users = Table(
     "users", metadata,
@@ -81,8 +77,6 @@ InteractionLogs = Table(
     Column("is_deleted", Boolean),
 )
  
-metadata.create_all(engine)
-
 Bookings = Table(
     "bookings", metadata,
     Column("id", Integer, primary_key=True),
@@ -96,6 +90,9 @@ Bookings = Table(
     Column("is_deleted", Boolean),
 )
  
+# AUTO CREATE TABLES
+metadata.create_all(engine)
+ 
 # -------------------------
 # FLASK APP
 # -------------------------
@@ -107,6 +104,27 @@ CORS(app)
 # -------------------------
 user_sessions = {}
  
+# -------------------------
+# ROUTER (CORE ENGINE)
+# -------------------------
+def detect_module(message):
+    msg = message.lower()
+ 
+    if any(word in msg for word in [
+        "password", "login", "aad", "azure",
+        "exchange", "mailbox", "outlook",
+        "vpn", "network", "server",
+        "app registration", "enterprise app",
+        "dynamics"
+    ]):
+        return "it_support"
+ 
+    return "vehicle"
+ 
+ 
+# -------------------------
+# VEHICLE MODULE
+# -------------------------
 def generate_days():
     days = []
     current = datetime.now()
@@ -118,8 +136,114 @@ def generate_days():
  
     return days
  
+ 
 def generate_times():
     return ["08:00", "10:00", "14:00", "16:00"]
+ 
+ 
+def handle_vehicle_module(message, session, session_id):
+ 
+    msg = message.lower()
+    reply = None
+ 
+    # PRICING
+    if any(word in msg for word in ["price", "cost", "how much"]):
+        reply = (
+            "NexAI: Estimated costs:\n\n"
+            "- Oil Change: R800 – R1,500\n"
+            "- Brake Service: R2,500 – R5,500\n"
+            "- General Service: R1,200 – R3,000\n"
+        )
+ 
+    # BOOKING FLOW
+    elif any(word in msg for word in ["book", "service", "fix"]):
+ 
+        service_type = "General Service"
+        if "brake" in msg:
+            service_type = "Brake Service"
+        if "oil" in msg:
+            service_type = "Oil Change"
+ 
+        session["service_type"] = service_type
+        session["state"] = "awaiting_date"
+        session["days"] = generate_days()
+ 
+        reply = "Select a service date:\n" + "\n".join(
+            [f"{i+1}. {d}" for i, d in enumerate(session["days"])]
+        )
+ 
+    elif session.get("state") == "awaiting_date" and message.isdigit():
+        idx = int(message) - 1
+ 
+        if 0 <= idx < len(session["days"]):
+            session["selected_day"] = session["days"][idx]
+            session["state"] = "awaiting_time"
+            session["times"] = generate_times()
+ 
+            reply = "Select a time:\n" + "\n".join(
+                [f"{i+1}. {t}" for i, t in enumerate(session["times"])]
+            )
+ 
+    elif session.get("state") == "awaiting_time" and message.isdigit():
+        idx = int(message) - 1
+ 
+        if 0 <= idx < len(session["times"]):
+            selected_time = session["times"][idx]
+ 
+            reply = f"Booking Confirmed\n{session['selected_day']} at {selected_time}"
+            session["state"] = None
+ 
+    # FALLBACK GPT
+    if reply is None:
+        reply = f"NexAI: {ask_gpt(message)}"
+ 
+    return reply
+ 
+ 
+# -------------------------
+# ENTERPRISE IT MODULE
+# -------------------------
+def handle_it_module(message):
+ 
+    msg = message.lower()
+ 
+    # DL / GROUPS
+    if "distribution" in msg or "dl" in msg:
+        return (
+            "NexAI IT (Exchange):\n\n"
+            "Create Distribution Group:\n"
+            "New-DistributionGroup -Name 'GroupName'\n"
+            "-PrimarySmtpAddress group@company.com\n"
+        )
+ 
+    # MAILBOX
+    elif "mailbox" in msg:
+        return (
+            "NexAI IT (Exchange Hybrid):\n\n"
+            "Enable Remote Mailbox:\n"
+            "Enable-RemoteMailbox -Identity user\n"
+            "-RemoteRoutingAddress user@tenant.mail.onmicrosoft.com"
+        )
+ 
+    # PASSWORD
+    elif "password" in msg:
+        return (
+            "NexAI IT:\n\n"
+            "Reset password via Azure AD portal or:\n"
+            "Set-AzureADUserPassword\n"
+        )
+ 
+    # APP REG
+    elif "app registration" in msg:
+        return (
+            "NexAI IT:\n\n"
+            "Go to Azure → App Registrations → New Registration\n"
+            "Set redirect URI → Assign API permissions"
+        )
+ 
+    # FALLBACK GPT
+    return f"NexAI IT: {ask_gpt(message)}"
+ 
  
 # -------------------------
 # ROUTES
@@ -128,172 +252,38 @@ def generate_times():
 def serve_frontend():
     return send_from_directory(".", "index.html")
  
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"}), 200
  
-# -------------------------
-# CHAT ENGINE
-# -------------------------
 @app.post("/chat")
 def chat():
  
-    data = request.get_json(silent=True) or {}
-    message = (data.get("message") or "").strip()
+    data = request.get_json()
+    message = data.get("message", "").strip()
  
-    if not message:
-        return jsonify({"error": "message is required"}), 400
- 
-    session_id = data.get("session_id") or "default"
+    session_id = data.get("session_id", "default")
  
     if session_id not in user_sessions:
-        user_sessions[session_id] = {"state": None}
+        user_sessions[session_id] = {}
  
     session = user_sessions[session_id]
-    msg = message.lower()
  
-    reply = None
+    module = detect_module(message)
  
-    # =====================================================
-    # 1. INTELLIGENCE (CONTROLLED)
-    # =====================================================
-    if any(msg.startswith(q) for q in ["why", "what", "how"]) and "how much" not in msg:
+    if module == "vehicle":
+        reply = handle_vehicle_module(message, session, session_id)
  
-        if any(term in msg for term in ["brake", "braking", "brakes"]):
-            reply = (
-                "NexAI: Braking systems work by applying friction through brake pads to slow the vehicle.\n\n"
-                "If performance is reduced, a brake inspection is recommended."
-            )
+    else:
+        reply = handle_it_module(message)
  
-        elif "oil" in msg:
-            reply = (
-                "NexAI: Engine oil lubricates moving components and reduces heat and friction.\n\n"
-                "Regular oil changes are essential for engine health."
-            )
+    return jsonify({"response": reply})
  
-    # =====================================================
-    # 2. DOMAIN RICHNESS
-    # =====================================================
-    elif any(word in msg for word in ["price", "cost", "how much"]):
  
-        reply = (
-            "NexAI: Estimated service costs:\n\n"
-            "- Oil Change: R800 – R1,500\n"
-            "- Brake Service: R2,500 – R5,500\n"
-            "- General Service: R1,200 – R3,000\n\n"
-            "Would you like to book a service?"
-        )
- 
-    elif any(word in msg for word in ["recommend", "suggest", "advice"]):
- 
-        reply = (
-            "NexAI: Maintenance recommendations:\n\n"
-            "- Oil change every 5,000 – 10,000 km\n"
-            "- Brake inspection every 10,000 km\n"
-            "- Tire rotation every 8,000 km\n\n"
-            "Would you like to schedule a service?"
-        )
- 
-    # =====================================================
-    # 3. BOOKING FLOW
-    # =====================================================
-    elif any(x in msg for x in ["book", "service", "fix", "maintenance"]):
- 
-        if "brake" in msg:
-            service_type = "Brake Service"
-        elif "oil" in msg:
-            service_type = "Oil Change"
-        else:
-            service_type = "General Service"
- 
-        session["service_type"] = service_type
- 
-        days = generate_days()
-        session["state"] = "awaiting_date"
-        session["days"] = days
- 
-        day_list = "\n".join([f"{i+1}. {d}" for i, d in enumerate(days)])
- 
-        reply = (
-            f"NexAI: I understand you need a {service_type.lower()}.\n\n"
-            f"Please choose a service date:\n\n{day_list}"
-        )
- 
-    elif session.get("state") == "awaiting_date" and message.isdigit():
- 
-        index = int(message) - 1
- 
-        if 0 <= index < len(session["days"]):
-            selected_day = session["days"][index]
-            session["selected_day"] = selected_day
-            session["state"] = "awaiting_time"
- 
-            times = generate_times()
-            session["times"] = times
- 
-            time_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(times)])
- 
-            reply = f"NexAI: Available time slots for {selected_day}:\n\n{time_list}"
-        else:
-            reply = "NexAI: Invalid selection."
- 
-    elif session.get("state") == "awaiting_time" and message.isdigit():
- 
-        index = int(message) - 1
- 
-        if 0 <= index < len(session["times"]):
- 
-            selected_time = session["times"][index]
-            selected_day = session["selected_day"]
- 
-            session["state"] = None
- 
-            reply = f"NexAI: Booking confirmed!\n\n{selected_day} at {selected_time}"
- 
-    # =====================================================
-    # 4. GPT FALLBACK (CONTROLLED DOMAIN)
-    # =====================================================
-    if reply is None:
-        gpt_response = ask_gpt(message)
-        reply = f"NexAI: {gpt_response}"
- 
-    # =====================================================
-    # LOGGING
-    # =====================================================
-    try:
-        with engine.begin() as conn:
-            now = datetime.utcnow()
- 
-            conn.execute(
-                InteractionLogs.insert().values(
-                    session_id=session_id,
-                    direction="incoming",
-                    message=message,
-                    created_at=now,
-                    updated_at=now,
-                    is_deleted=False
-                )
-            )
- 
-            conn.execute(
-                InteractionLogs.insert().values(
-                    session_id=session_id,
-                    direction="outgoing",
-                    message=reply,
-                    created_at=now,
-                    updated_at=now,
-                    is_deleted=False
-                )
-            )
- 
-    except Exception as e:
-        print("LOG ERROR:", e)
- 
-    return jsonify({"response": reply}), 200
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok"})
  
  
 # -------------------------
-# MAIN
+# MAIN (RENDER FIX)
 # -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
