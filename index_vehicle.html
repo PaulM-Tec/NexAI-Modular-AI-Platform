@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NexAI Vehicle Assistant</title>
+ 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+ 
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f4f4;
+            margin: 0;
+        }
+ 
+        .header {
+            background: #0078d7;
+            color: white;
+            padding: 15px;
+            font-size: 20px;
+            text-align: center;
+        }
+ 
+        .chatbox {
+            padding: 20px;
+            height: 70vh;
+            overflow-y: auto;
+        }
+ 
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            max-width: 60%;
+        }
+ 
+        .user {
+            background: #0078d7;
+            color: white;
+            margin-left: auto;
+        }
+ 
+        .bot {
+            background: #e0e0e0;
+        }
+ 
+        .input-area {
+            display: flex;
+            padding: 10px;
+            background: white;
+        }
+ 
+        input {
+            flex: 1;
+            padding: 10px;
+        }
+ 
+        button {
+            padding: 10px;
+            background: #0078d7;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+ 
+<body>
+ 
+<div class="header">🚗 NexAI Vehicle Assistant</div>
+ 
+<div id="chat" class="chatbox"></div>
+ 
+<div class="input-area">
+    <input id="msg" placeholder="Type vehicle-related question..." />
+    <button onclick="sendMessage()">Send</button>
+</div>
+ 
+<script>
+let sessionId = Date.now();
+ 
+function addMessage(text, cls) {
+    let div = document.createElement("div");
+    div.className = "message " + cls;
+    div.innerHTML = cls === "bot" ? marked.parse(text) : text;
+    document.getElementById("chat").appendChild(div);
+}
+ 
+function sendMessage() {
+    let input = document.getElementById("msg");
+    let text = input.value;
+ 
+    addMessage(text, "user");
+ 
+    fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            message: text,
+            session_id: sessionId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        addMessage(data.response, "bot");
+    });
+ 
+    input.value = "";
+}
+</script>
+ 
+</body>
+</html>

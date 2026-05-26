@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NexAI IT Support</title>
+ 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+ 
+    <style>
+        body {
+            font-family: Arial;
+            background: #1e1e2f;
+            margin: 0;
+            color: white;
+        }
+ 
+        .header {
+            background: #111;
+            padding: 15px;
+            font-size: 20px;
+            text-align: center;
+        }
+ 
+        .chatbox {
+            padding: 20px;
+            height: 70vh;
+            overflow-y: auto;
+        }
+ 
+        .message {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            max-width: 70%;
+        }
+ 
+        .user {
+            background: #0078d7;
+            margin-left: auto;
+        }
+ 
+        .bot {
+            background: #2d2d44;
+        }
+ 
+        .input-area {
+            display: flex;
+            padding: 10px;
+            background: #111;
+        }
+ 
+        input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+        }
+ 
+        button {
+            padding: 10px;
+            background: #0078d7;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+ 
+<body>
+ 
+<div class="header">🖥️ NexAI IT Support Assistant</div>
+ 
+<div id="chat" class="chatbox"></div>
+ 
+<div class="input-area">
+    <input id="msg" placeholder="Enter IT request (Azure, Exchange, AD...)" />
+    <button onclick="sendMessage()">Send</button>
+</div>
+ 
+<script>
+let sessionId = Date.now();
+ 
+function addMessage(text, cls) {
+    let div = document.createElement("div");
+    div.className = "message " + cls;
+    div.innerHTML = cls === "bot" ? marked.parse(text) : text;
+    document.getElementById("chat").appendChild(div);
+}
+ 
+function sendMessage() {
+    let input = document.getElementById("msg");
+    let text = input.value;
+ 
+    addMessage(text, "user");
+ 
+    fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            message: text,
+            session_id: sessionId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        addMessage(data.response, "bot");
+    });
+ 
+    input.value = "";
+}
+</script>
+ 
+</body>
+</html>

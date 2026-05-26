@@ -1,5 +1,4 @@
 import os
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
  
@@ -22,7 +21,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 # -------------------------
-# GPT FUNCTION (RESTRICTED DOMAIN)
+# GPT FUNCTION
 # -------------------------
 def ask_gpt(message):
     try:
@@ -32,27 +31,26 @@ def ask_gpt(message):
                 {
                     "role": "system",
                     "content": (
-                        "You are NexAI, a professional enterprise assistant.\n"
-                        "You only answer questions related to:\n"
+                        "You are NexAI, an assistant for:\n"
                         "- Automotive services\n"
                         "- Enterprise IT (Azure AD, Exchange, Microsoft 365)\n\n"
-                        "If unrelated, say: 'I can only assist with vehicle or IT queries.'\n"
-                        "Keep answers concise, structured, and practical."
+                        "If unrelated, respond:\n"
+                        "'I can only assist with vehicle or enterprise IT queries.'\n\n"
+                        "Be concise, structured and practical."
                     )
                 },
                 {"role": "user", "content": message}
             ],
             max_tokens=150
         )
- 
         return response.choices[0].message.content
  
     except Exception as e:
         print("GPT ERROR:", e)
-        return "NexAI: Unable to retrieve information right now."
+        return "NexAI: Unable to retrieve information."
  
 # -------------------------
-# DATABASE CONFIG
+# DATABASE
 # -------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
@@ -90,11 +88,11 @@ Bookings = Table(
     Column("is_deleted", Boolean),
 )
  
-# AUTO CREATE TABLES
+# Create tables if not exists
 metadata.create_all(engine)
  
 # -------------------------
-# FLASK APP
+# FLASK
 # -------------------------
 app = Flask(__name__)
 CORS(app)
@@ -105,7 +103,7 @@ CORS(app)
 user_sessions = {}
  
 # -------------------------
-# ROUTER (CORE ENGINE)
+# ROUTER
 # -------------------------
 def detect_module(message):
     msg = message.lower()
@@ -117,10 +115,9 @@ def detect_module(message):
         "app registration", "enterprise app",
         "dynamics"
     ]):
-        return "it_support"
+        return "it"
  
     return "vehicle"
- 
  
 # -------------------------
 # VEHICLE MODULE
@@ -128,40 +125,33 @@ def detect_module(message):
 def generate_days():
     days = []
     current = datetime.now()
- 
     while len(days) < 5:
         current += timedelta(days=1)
         if current.weekday() <= 4:
             days.append(current.strftime("%A"))
- 
     return days
- 
  
 def generate_times():
     return ["08:00", "10:00", "14:00", "16:00"]
  
- 
-def handle_vehicle_module(message, session, session_id):
- 
+def handle_vehicle_module(message, session):
     msg = message.lower()
     reply = None
  
-    # PRICING
     if any(word in msg for word in ["price", "cost", "how much"]):
         reply = (
-            "NexAI: Estimated costs:\n\n"
+            "Estimated costs:\n\n"
             "- Oil Change: R800 – R1,500\n"
             "- Brake Service: R2,500 – R5,500\n"
             "- General Service: R1,200 – R3,000\n"
         )
  
-    # BOOKING FLOW
-    elif any(word in msg for word in ["book", "service", "fix"]):
+    elif any(word in msg for word in ["book", "service"]):
  
         service_type = "General Service"
         if "brake" in msg:
             service_type = "Brake Service"
-        if "oil" in msg:
+        elif "oil" in msg:
             service_type = "Oil Change"
  
         session["service_type"] = service_type
@@ -189,73 +179,67 @@ def handle_vehicle_module(message, session, session_id):
  
         if 0 <= idx < len(session["times"]):
             selected_time = session["times"][idx]
- 
             reply = f"Booking Confirmed\n{session['selected_day']} at {selected_time}"
             session["state"] = None
  
-    # FALLBACK GPT
     if reply is None:
         reply = f"NexAI: {ask_gpt(message)}"
  
     return reply
  
- 
 # -------------------------
-# ENTERPRISE IT MODULE
+# IT MODULE
 # -------------------------
 def handle_it_module(message):
- 
     msg = message.lower()
  
-    # DL / GROUPS
     if "distribution" in msg or "dl" in msg:
         return (
-            "NexAI IT (Exchange):\n\n"
-            "Create Distribution Group:\n"
-            "New-DistributionGroup -Name 'GroupName'\n"
-            "-PrimarySmtpAddress group@company.com\n"
+            "**Exchange Online:**\n\n"
+            "New-DistributionGroup -Name 'GroupName' "
+            "-PrimarySmtpAddress group@company.com"
         )
  
-    # MAILBOX
     elif "mailbox" in msg:
         return (
-            "NexAI IT (Exchange Hybrid):\n\n"
-            "Enable Remote Mailbox:\n"
-            "Enable-RemoteMailbox -Identity user\n"
+            "**Hybrid Mailbox:**\n\n"
+            "Enable-RemoteMailbox -Identity user "
             "-RemoteRoutingAddress user@tenant.mail.onmicrosoft.com"
         )
  
-    # PASSWORD
     elif "password" in msg:
-        return (
-            "NexAI IT:\n\n"
-            "Reset password via Azure AD portal or:\n"
-            "Set-AzureADUserPassword\n"
-        )
+        return "**Password Reset:**\nUse Azure AD portal or PowerShell"
  
-    # APP REG
     elif "app registration" in msg:
         return (
-            "NexAI IT:\n\n"
-            "Go to Azure → App Registrations → New Registration\n"
-            "Set redirect URI → Assign API permissions"
+            "**App Registration:**\n"
+            "Azure Portal → App Registrations → New"
         )
  
-    # FALLBACK GPT
     return f"NexAI IT: {ask_gpt(message)}"
- 
  
 # -------------------------
 # ROUTES
 # -------------------------
+ 
+# Default (optional)
 @app.get("/")
-def serve_frontend():
-    return send_from_directory(".", "index.html")
+def home():
+    return "NexAI is running. Use /vehicle or /it"
  
+# VEHICLE FRONTEND
+@app.get("/vehicle")
+def vehicle_ui():
+    return send_from_directory(".", "index_vehicle.html")
  
+# IT FRONTEND
+@app.get("/it")
+def it_ui():
+    return send_from_directory(".", "index_it.html")
+ 
+# CHAT API
 @app.post("/chat")
 def chat():
- 
     data = request.get_json()
     message = data.get("message", "").strip()
  
@@ -269,21 +253,19 @@ def chat():
     module = detect_module(message)
  
     if module == "vehicle":
-        reply = handle_vehicle_module(message, session, session_id)
- 
+        reply = handle_vehicle_module(message, session)
     else:
         reply = handle_it_module(message)
  
     return jsonify({"response": reply})
  
- 
+# HEALTH
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"})
  
- 
 # -------------------------
-# MAIN (RENDER FIX)
+# MAIN (RENDER)
 # -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
