@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
  
 # -------------------------
-# VEHICLE AI
+# VEHICLE AI (CLEAN FORMAT)
 # -------------------------
 def vehicle_ai(msg):
     response = client.chat.completions.create(
@@ -23,12 +23,16 @@ def vehicle_ai(msg):
             {
                 "role": "system",
                 "content": (
-                    "You are an automotive assistant.\n"
-                    "Give short, structured answers.\n\n"
-                    "Format:\n"
-                    "Title\n"
+                    "You are an automotive assistant.\n\n"
+ 
+                    "FORMAT STRICTLY:\n"
+                    "## Title\n"
                     "Short explanation\n"
-                    "Bullet points or steps\n\n"
+                    "- Bullet point\n"
+                    "- Bullet point\n\n"
+ 
+                    "Keep spacing tight.\n"
+                    "No extra blank lines.\n"
                     "No IT topics."
                 )
             },
@@ -36,11 +40,12 @@ def vehicle_ai(msg):
         ],
         max_tokens=150
     )
+ 
     return response.choices[0].message.content
  
  
 # -------------------------
-# IT AI (ADMIN LEVEL)
+# IT AI (ADMIN + FORMATTED)
 # -------------------------
 def it_ai(msg):
     response = client.chat.completions.create(
@@ -56,7 +61,7 @@ def it_ai(msg):
                     "- Works in:\n"
                     "  • Microsoft 365 Admin Center\n"
                     "  • Exchange Admin Center\n"
-                    "  • Entra / Azure Portal\n"
+                    "  • Entra (Azure AD)\n"
                     "  • App Registrations\n\n"
  
                     "Rules:\n"
@@ -64,15 +69,17 @@ def it_ai(msg):
                     "- Use PowerShell or Admin Center\n"
                     "- NO Outlook instructions\n\n"
  
-                    "FORMAT STRICT:\n"
-                    "**Title**\n"
-                    "One-line explanation\n\n"
-                    "**Steps**:\n"
+                    "FORMAT STRICTLY:\n"
+                    "## Title\n"
+                    "One-line explanation\n"
+                    "### Steps\n"
                     "- Step 1\n"
-                    "- Step 2\n\n"
-                    "**Command (if needed)**:\n"
-                    "```powershell\ncommand\n```\n\n"
-                    "Keep it SHORT."
+                    "- Step 2\n"
+                    "### Command (if needed)\n"
+                    "```powershell\ncommand\n```\n"
+ 
+                    "No empty lines between sections.\n"
+                    "Keep output compact."
                 )
             },
             {"role": "user", "content": msg}
@@ -84,26 +91,30 @@ def it_ai(msg):
  
  
 # -------------------------
-# ROUTER (CORRECTED)
+# ROUTER (FIXED PROPERLY)
 # -------------------------
 def detect(msg):
  
     msg = msg.lower()
  
-    # IT FIRST
-    if any(w in msg for w in [
-        "api", "app", "permission", "azure",
-        "entra", "exchange", "mailbox",
-        "tenant", "group", "password"
+    # IT FIRST (IMPORTANT FIX)
+    if any(word in msg for word in [
+        "api", "app", "permissions", "graph",
+        "azure", "entra", "tenant",
+        "exchange", "mailbox",
+        "group", "distribution",
+        "password", "login"
     ]):
         return "it"
  
     # VEHICLE
-    if any(w in msg for w in [
-        "car","engine","oil","leak","vehicle","brake"
+    if any(word in msg for word in [
+        "car", "engine", "oil",
+        "leak", "vehicle", "brake"
     ]):
         return "vehicle"
  
+    # SAFE DEFAULT
     return "it"
  
  
@@ -114,20 +125,26 @@ def detect(msg):
 def home():
     return "Use /vehicle or /it"
  
+ 
 @app.get("/vehicle")
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
+ 
  
 @app.get("/it")
 def it_ui():
     return send_from_directory(".", "index_it.html")
  
+ 
 @app.post("/chat")
 def chat():
-    data = request.get_json()
-    msg = data.get("message", "")
  
-    if detect(msg) == "vehicle":
+    data = request.get_json()
+    msg = data.get("message", "").strip()
+ 
+    module = detect(msg)
+ 
+    if module == "vehicle":
         reply = vehicle_ai(msg)
     else:
         reply = it_ai(msg)
