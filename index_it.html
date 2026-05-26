@@ -9,46 +9,44 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
+ 
 body {
     margin: 0;
     font-family: Arial;
     background: #1e1e2f;
 }
  
-/* CENTER CONTAINER */
-.container {
-    max-width: 950px;
+/* FIXED CENTERED APP LIKE BEFORE */
+.wrapper {
+    max-width: 850px;
     margin: auto;
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #252542;
 }
  
 /* HEADER */
 .header {
     background: #111;
     color: #00d4ff;
-    padding: 15px;
+    padding: 12px;
     text-align: center;
-    font-size: 18px;
     font-weight: bold;
-    border-bottom: 1px solid #333;
 }
  
-/* CHAT AREA */
+/* CHAT AREA TAKES FULL SPACE */
 .chatbox {
     flex: 1;
     overflow-y: auto;
     padding: 15px;
 }
  
-/* MESSAGE BUBBLES */
+/* MESSAGES */
 .message {
     margin: 10px 0;
     padding: 12px;
-    border-radius: 8px;
-    max-width: 80%;
+    border-radius: 10px;
+    max-width: 75%;
     line-height: 1.4;
 }
  
@@ -63,64 +61,46 @@ body {
     color: #e6e6e6;
 }
  
-/* IT STYLE CODE BLOCK */
-pre {
-    background: #111;
-    color: #00ff9c;
-    padding: 10px;
-    border-radius: 5px;
-    overflow-x: auto;
-}
- 
-/* INPUT AREA */
+/* INPUT BAR FIXED */
 .input-area {
     display: flex;
     padding: 10px;
     background: #111;
-    border-top: 1px solid #333;
 }
  
 input {
     flex: 1;
-    padding: 10px;
+    padding: 12px;
     border: none;
     background: #2d2d44;
     color: white;
 }
  
-input::placeholder {
-    color: #aaa;
-}
- 
 button {
-    padding: 10px 15px;
+    padding: 12px;
     background: #0078d7;
     color: white;
     border: none;
 }
  
-/* MOBILE OPTIMISATION */
+/* FIX MOBILE HEIGHT */
 @media (max-width: 600px) {
-    .container {
-        width: 100%;
+    .wrapper {
+        max-width: 100%;
         height: 100vh;
     }
  
     .message {
-        max-width: 95%;
-        font-size: 14px;
-    }
- 
-    .header {
-        font-size: 16px;
+        max-width: 90%;
     }
 }
+ 
 </style>
 </head>
  
 <body>
  
-<div class="container">
+<div class="wrapper">
  
     <div class="header">🖥️ NexAI Enterprise IT Support</div>
  
@@ -142,21 +122,21 @@ function addMessage(text, cls) {
     let div = document.createElement("div");
     div.className = "message " + cls;
  
-    div.innerHTML = cls === "bot"
+    div.innerHTML =
+        cls === "bot"
         ? marked.parse(text)
         : text;
  
     document.getElementById("chat").appendChild(div);
  
-    // AUTO SCROLL
     document.getElementById("chat").scrollTop =
         document.getElementById("chat").scrollHeight;
 }
  
 /* SEND MESSAGE */
 function sendMessage() {
-    let input = document.getElementById("msg");
-    let text = input.value;
+    const input = document.getElementById("msg");
+    const text = input.value.trim();
  
     if (!text) return;
  
@@ -171,12 +151,17 @@ function sendMessage() {
         })
     })
     .then(res => res.json())
-    .then(data => {
-        addMessage(data.response, "bot");
-    });
+    .then(data => addMessage(data.response, "bot"));
  
     input.value = "";
 }
+ 
+/* ENTER KEY FIX */
+document.getElementById("msg").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        sendMessage();
+    }
+});
  
 </script>
  

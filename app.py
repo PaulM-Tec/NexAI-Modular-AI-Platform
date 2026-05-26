@@ -4,24 +4,18 @@ from pathlib import Path
  
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
- 
-from sqlalchemy import (
-    create_engine, MetaData, Table,
-    Column, Integer, String, DateTime, Boolean
-)
- 
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Boolean
 from dotenv import load_dotenv
 from openai import OpenAI
  
 # -------------------------
-# LOAD ENV
+# ENV
 # -------------------------
 load_dotenv()
- 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 # -------------------------
-# GPT FUNCTION
+# GPT
 # -------------------------
 def ask_gpt(message):
     try:
@@ -31,12 +25,10 @@ def ask_gpt(message):
                 {
                     "role": "system",
                     "content": (
-                        "You are NexAI, an assistant for:\n"
-                        "- Automotive services\n"
-                        "- Enterprise IT (Azure AD, Exchange, Microsoft 365)\n\n"
-                        "If unrelated, respond:\n"
-                        "'I can only assist with vehicle or enterprise IT queries.'\n\n"
-                        "Be concise, structured and practical."
+                        "You are NexAI.\n"
+                        "- Automotive assistant\n"
+                        "- Enterprise IT assistant\n"
+                        "Give structured, practical responses."
                     )
                 },
                 {"role": "user", "content": message}
@@ -44,228 +36,116 @@ def ask_gpt(message):
             max_tokens=150
         )
         return response.choices[0].message.content
- 
     except Exception as e:
         print("GPT ERROR:", e)
-        return "NexAI: Unable to retrieve information."
+        return "Unable to retrieve information."
  
 # -------------------------
-# DATABASE
+# DB
 # -------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
  
-engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
+engine = create_engine(f"sqlite:///{DB_PATH}")
 metadata = MetaData()
- 
-Users = Table(
-    "users", metadata,
-    Column("id", Integer, primary_key=True),
-    Column("name", String),
-)
  
 InteractionLogs = Table(
     "interaction_logs", metadata,
     Column("id", Integer, primary_key=True),
     Column("session_id", String),
-    Column("direction", String),
     Column("message", String),
-    Column("created_at", DateTime),
-    Column("updated_at", DateTime),
-    Column("is_deleted", Boolean),
+    Column("created_at", DateTime)
 )
  
-Bookings = Table(
-    "bookings", metadata,
-    Column("id", Integer, primary_key=True),
-    Column("session_id", String),
-    Column("service_type", String),
-    Column("booking_date", String),
-    Column("booking_time", String),
-    Column("status", String),
-    Column("created_at", DateTime),
-    Column("updated_at", DateTime),
-    Column("is_deleted", Boolean),
-)
- 
-# Create tables if not exists
 metadata.create_all(engine)
  
 # -------------------------
-# FLASK
+# APP
 # -------------------------
 app = Flask(__name__)
 CORS(app)
  
-# -------------------------
-# SESSION MEMORY
-# -------------------------
-user_sessions = {}
+sessions = {}
  
 # -------------------------
 # ROUTER
 # -------------------------
-def detect_module(message):
-    msg = message.lower()
+def detect_module(msg):
+    msg = msg.lower()
  
-    if any(word in msg for word in [
-        "password", "login", "aad", "azure",
-        "exchange", "mailbox", "outlook",
-        "vpn", "network", "server",
-        "app registration", "enterprise app",
-        "dynamics"
+    if any(k in msg for k in [
+        "password", "mailbox", "exchange",
+        "aad", "azure", "vpn", "network"
     ]):
         return "it"
  
     return "vehicle"
  
 # -------------------------
-# VEHICLE MODULE
+# VEHICLE
 # -------------------------
-def generate_days():
-    days = []
-    current = datetime.now()
-    while len(days) < 5:
-        current += timedelta(days=1)
-        if current.weekday() <= 4:
-            days.append(current.strftime("%A"))
-    return days
+def handle_vehicle(msg, session):
  
-def generate_times():
-    return ["08:00", "10:00", "14:00", "16:00"]
+    msg = msg.lower()
  
-def handle_vehicle_module(message, session):
-    msg = message.lower()
-    reply = None
+    if "price" in msg or "cost" in msg:
+        return "Brake Service: R2,500 – R5,500"
  
-    if any(word in msg for word in ["price", "cost", "how much"]):
-        reply = (
-            "Estimated costs:\n\n"
-            "- Oil Change: R800 – R1,500\n"
-            "- Brake Service: R2,500 – R5,500\n"
-            "- General Service: R1,200 – R3,000\n"
-        )
+    if "book" in msg:
+        return "Booking started..."
  
-    elif any(word in msg for word in ["book", "service"]):
- 
-        service_type = "General Service"
-        if "brake" in msg:
-            service_type = "Brake Service"
-        elif "oil" in msg:
-            service_type = "Oil Change"
- 
-        session["service_type"] = service_type
-        session["state"] = "awaiting_date"
-        session["days"] = generate_days()
- 
-        reply = "Select a service date:\n" + "\n".join(
-            [f"{i+1}. {d}" for i, d in enumerate(session["days"])]
-        )
- 
-    elif session.get("state") == "awaiting_date" and message.isdigit():
-        idx = int(message) - 1
- 
-        if 0 <= idx < len(session["days"]):
-            session["selected_day"] = session["days"][idx]
-            session["state"] = "awaiting_time"
-            session["times"] = generate_times()
- 
-            reply = "Select a time:\n" + "\n".join(
-                [f"{i+1}. {t}" for i, t in enumerate(session["times"])]
-            )
- 
-    elif session.get("state") == "awaiting_time" and message.isdigit():
-        idx = int(message) - 1
- 
-        if 0 <= idx < len(session["times"]):
-            selected_time = session["times"][idx]
-            reply = f"Booking Confirmed\n{session['selected_day']} at {selected_time}"
-            session["state"] = None
- 
-    if reply is None:
-        reply = f"NexAI: {ask_gpt(message)}"
- 
-    return reply
+    return ask_gpt(msg)
  
 # -------------------------
-# IT MODULE
+# IT (FIXED)
 # -------------------------
-def handle_it_module(message):
-    msg = message.lower()
+def handle_it(msg):
  
-    if "distribution" in msg or "dl" in msg:
-        return (
-            "**Exchange Online:**\n\n"
-            "New-DistributionGroup -Name 'GroupName' "
-            "-PrimarySmtpAddress group@company.com"
-        )
+    msg = msg.lower()
  
-    elif "mailbox" in msg:
-        return (
-            "**Hybrid Mailbox:**\n\n"
-            "Enable-RemoteMailbox -Identity user "
-            "-RemoteRoutingAddress user@tenant.mail.onmicrosoft.com"
-        )
+    if "distribution group" in msg:
+        return "New-DistributionGroup -Name 'GroupName'"
  
-    elif "password" in msg:
-        return "**Password Reset:**\nUse Azure AD portal or PowerShell"
+    if "enable mailbox" in msg:
+        return "Enable-RemoteMailbox -Identity user"
  
-    elif "app registration" in msg:
-        return (
-            "**App Registration:**\n"
-            "Azure Portal → App Registrations → New"
-        )
- 
-    return f"NexAI IT: {ask_gpt(message)}"
+    # GPT handles MOST QUESTIONS
+    return f"NexAI IT: {ask_gpt(msg)}"
  
 # -------------------------
 # ROUTES
 # -------------------------
- 
-# Default (optional)
 @app.get("/")
 def home():
-    return "NexAI is running. Use /vehicle or /it"
+    return "Use /vehicle or /it"
  
-# VEHICLE FRONTEND
 @app.get("/vehicle")
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
  
-# IT FRONTEND
 @app.get("/it")
 def it_ui():
     return send_from_directory(".", "index_it.html")
  
-# CHAT API
 @app.post("/chat")
 def chat():
+ 
     data = request.get_json()
     message = data.get("message", "").strip()
- 
     session_id = data.get("session_id", "default")
- 
-    if session_id not in user_sessions:
-        user_sessions[session_id] = {}
- 
-    session = user_sessions[session_id]
  
     module = detect_module(message)
  
     if module == "vehicle":
-        reply = handle_vehicle_module(message, session)
+        reply = handle_vehicle(message, {})
+ 
     else:
-        reply = handle_it_module(message)
+        reply = handle_it(message)
  
     return jsonify({"response": reply})
  
-# HEALTH
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
- 
 # -------------------------
-# MAIN (RENDER)
+# RUN
 # -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

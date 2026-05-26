@@ -4,34 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-<title>NexAI Vehicle</title>
+<title>NexAI Vehicle Assistant</title>
  
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+https://cdn.jsdelivr.net/npm/marked/marked.min.js>
  
 <style>
+ 
 body {
     margin: 0;
     font-family: Arial;
     background: #f4f4f4;
 }
  
-/* CENTER CONTAINER */
-.container {
-    max-width: 900px;
+/* SAME STRUCTURE AS IT UI */
+.wrapper {
+    max-width: 850px;
     margin: auto;
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: white;
 }
  
 /* HEADER */
 .header {
     background: #0078d7;
     color: white;
-    padding: 15px;
+    padding: 12px;
     text-align: center;
-    font-size: 18px;
+    font-weight: bold;
 }
  
 /* CHAT AREA */
@@ -44,9 +44,10 @@ body {
 /* MESSAGES */
 .message {
     margin: 10px 0;
-    padding: 10px;
-    border-radius: 8px;
+    padding: 12px;
+    border-radius: 10px;
     max-width: 75%;
+    line-height: 1.4;
 }
  
 .user {
@@ -57,22 +58,23 @@ body {
  
 .bot {
     background: #e9e9e9;
+    color: black;
 }
  
 /* INPUT BAR */
 .input-area {
     display: flex;
     padding: 10px;
-    border-top: 1px solid #ddd;
+    background: white;
 }
  
 input {
     flex: 1;
-    padding: 10px;
+    padding: 12px;
 }
  
 button {
-    padding: 10px 15px;
+    padding: 12px;
     background: #0078d7;
     color: white;
     border: none;
@@ -80,28 +82,29 @@ button {
  
 /* MOBILE FIX */
 @media (max-width: 600px) {
-    .container {
-        height: 100vh;
+    .wrapper {
         max-width: 100%;
+        height: 100vh;
     }
  
     .message {
         max-width: 90%;
     }
 }
+ 
 </style>
 </head>
  
 <body>
  
-<div class="container">
+<div class="wrapper">
  
     <div class="header">🚗 NexAI Vehicle Assistant</div>
  
     <div id="chat" class="chatbox"></div>
  
     <div class="input-area">
-        <input id="msg" placeholder="Ask about your vehicle..." />
+        <input id="msg" placeholder="Ask about vehicle services..." />
         <button onclick="sendMessage()">Send</button>
     </div>
  
@@ -111,22 +114,26 @@ button {
  
 let sessionId = Date.now();
  
+/* ADD MESSAGE */
 function addMessage(text, cls) {
     let div = document.createElement("div");
     div.className = "message " + cls;
  
-    div.innerHTML = cls === "bot"
+    div.innerHTML =
+        cls === "bot"
         ? marked.parse(text)
         : text;
  
     document.getElementById("chat").appendChild(div);
-    document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+ 
+    document.getElementById("chat").scrollTop =
+        document.getElementById("chat").scrollHeight;
 }
  
+/* SEND */
 function sendMessage() {
- 
-    let input = document.getElementById("msg");
-    let text = input.value;
+    const input = document.getElementById("msg");
+    const text = input.value.trim();
  
     if (!text) return;
  
@@ -145,6 +152,13 @@ function sendMessage() {
  
     input.value = "";
 }
+ 
+/* ENTER KEY FIX */
+document.getElementById("msg").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        sendMessage();
+    }
+});
  
 </script>
  
