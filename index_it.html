@@ -2,7 +2,8 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+ 
+https://cdn.jsdelivr.net/npm/marked/marked.min.js
  
 <style>
 body {
@@ -14,8 +15,8 @@ body {
 .app {
   width:95%;
   max-width:420px;
-  margin:20px auto;
-  height:80vh;
+  margin:15px auto;
+  height:78vh;
   display:flex;
   flex-direction:column;
   background:#252542;
@@ -82,19 +83,22 @@ button {
 <body>
  
 <div class="app">
+ 
 <div class="header">🖥️ NexAI IT</div>
  
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg" placeholder="Ask IT (Exchange, Azure, App Registrations...)" />
+<input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)" />
 <button onclick="send()">Send</button>
 </div>
+ 
 </div>
  
 <script>
+ 
 const chat = document.getElementById("chat");
-const msg = document.getElementById("msg");
+const msgInput = document.getElementById("msg");
 const session = Date.now();
  
 function add(text,type){
@@ -102,10 +106,11 @@ function add(text,type){
   d.className="msg "+type;
   d.innerHTML = type==="bot" ? marked.parse(text) : text;
   chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
 }
  
 function send(){
-  let t = msg.value.trim();
+  const t = msgInput.value.trim();
   if(!t) return;
  
   add(t,"user");
@@ -128,10 +133,25 @@ function send(){
   .then(d=>{
     thinking.remove();
     add(d.response,"bot");
+  })
+  .catch(()=>{
+    thinking.remove();
+    add("Error contacting server","bot");
   });
  
-  msg.value="";
+  msgInput.value="";
 }
+ 
+/* FIX ENTER KEY */
+document.addEventListener("DOMContentLoaded", () => {
+  msgInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      e.preventDefault();
+      send();
+    }
+  });
+});
+ 
 </script>
  
 </body>
