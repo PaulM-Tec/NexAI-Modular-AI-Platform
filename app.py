@@ -10,36 +10,43 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 app = Flask(__name__)
 CORS(app)
  
+# -------------------------
+# VEHICLE AI
+# -------------------------
 def vehicle_ai(msg):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role":"system","content":"Automotive assistant. Short structured responses only."},
+            {
+                "role":"system",
+                "content":"You are an automotive assistant. Only answer vehicle-related queries. Be concise."
+            },
             {"role":"user","content":msg}
         ]
     )
     return response.choices[0].message.content
  
+ 
+# -------------------------
+# IT AI
+# -------------------------
 def it_ai(msg):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role":"system","content":"Enterprise IT admin assistant. Use PowerShell or Admin Center. Keep answers short."},
+            {
+                "role":"system",
+                "content":"You are an enterprise IT admin assistant (Exchange, Entra, M365). Use backend/admin perspective only."
+            },
             {"role":"user","content":msg}
         ]
     )
     return response.choices[0].message.content
  
-def detect(msg):
-    m = msg.lower()
  
-    if any(w in m for w in ["api","azure","app","permission","exchange","mailbox","tenant","group"]):
-        return "it"
- 
-    if any(w in m for w in ["car","engine","oil","leak","vehicle","brake"]):
-        return "vehicle"
- 
-    return "it"
+# -------------------------
+# ROUTES
+# -------------------------
  
 @app.get("/vehicle")
 def vehicle_ui():
@@ -49,16 +56,26 @@ def vehicle_ui():
 def it_ui():
     return send_from_directory(".", "index_it.html")
  
+ 
+# IMPORTANT: MODULE PARAM USED
 @app.post("/chat")
 def chat():
-    msg = request.get_json().get("message","")
  
-    if detect(msg) == "vehicle":
+    data = request.get_json()
+    msg = data.get("message", "")
+    module = data.get("module", "")  # KEY FIX
+ 
+    if module == "vehicle":
         reply = vehicle_ai(msg)
-    else:
+ 
+    elif module == "it":
         reply = it_ai(msg)
  
+    else:
+        return jsonify({"response": "Invalid module request."})
+ 
     return jsonify({"response": reply})
+ 
  
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT",5000)))

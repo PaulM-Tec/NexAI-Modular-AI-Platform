@@ -3,7 +3,6 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-<!-- FIXED SCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
@@ -12,15 +11,15 @@ body {
   display:flex;
   justify-content:center;
   align-items:center;
-  height:100vh;
+  min-height:100vh;
   background:#1e1e2f;
   font-family:Arial;
 }
  
 .app {
-  width:95%;
+  width:90%;
   max-width:420px;
-  height:85vh;
+  height:75vh;
   display:flex;
   flex-direction:column;
   background:#252542;
@@ -28,7 +27,7 @@ body {
 }
  
 .header {
-  padding:12px;
+  padding:10px;
   text-align:center;
   background:#111;
   color:#00d4ff;
@@ -42,14 +41,12 @@ body {
   flex-direction:column;
 }
  
-/* FIXED MESSAGE BEHAVIOUR */
 .msg {
   max-width:70%;
-  padding:10px;
+  padding:8px;
   margin:4px 0;
-  border-radius:10px;
+  border-radius:8px;
   font-size:13px;
-  line-height:1.3;
   word-break:break-word;
 }
  
@@ -61,25 +58,25 @@ body {
  
 .bot {
   background:#2d2d44;
-  color:#eee;
+  color:white;
 }
  
 .input {
   display:flex;
-  padding:8px;
+  padding:6px;
   background:#111;
 }
  
 input {
   flex:1;
-  padding:8px;
+  padding:6px;
   background:#333;
   color:white;
   border:none;
 }
  
 button {
-  padding:8px;
+  padding:6px;
   background:#0078d7;
   color:white;
   border:none;
@@ -91,7 +88,6 @@ button {
  
 <div class="app">
 <div class="header">🖥️ NexAI IT</div>
- 
 <div id="chat" class="chat"></div>
  
 <div class="input">
@@ -106,52 +102,47 @@ const chat = document.getElementById("chat");
 const msg = document.getElementById("msg");
  
 function add(text,type){
-    const d = document.createElement("div");
-    d.className = "msg " + type;
- 
-    try {
-        d.innerHTML = type === "bot"
-            ? marked.parse(text)
-            : text;
-    } catch {
-        d.innerText = text;
-    }
- 
-    chat.appendChild(d);
-    chat.scrollTop = chat.scrollHeight;
+  const d=document.createElement("div");
+  d.className="msg "+type;
+  d.innerHTML=type==="bot"?marked.parse(text):text;
+  chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
 }
  
 function send(){
-    const text = msg.value.trim();
-    if(!text) return;
+  const text=msg.value.trim();
+  if(!text) return;
  
-    add(text,"user");
+  add(text,"user");
  
-    const thinking = document.createElement("div");
-    thinking.className = "msg bot";
-    thinking.innerText = "Thinking...";
-    chat.appendChild(thinking);
+  const thinking=document.createElement("div");
+  thinking.className="msg bot";
+  thinking.innerText="Thinking...";
+  chat.appendChild(thinking);
  
-    fetch("/chat",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ message:text })
+  fetch("/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+        message:text,
+        module:"it"   // FIX
     })
-    .then(r=>r.json())
-    .then(d=>{
-        thinking.remove();
-        add(d.response,"bot");
-    })
-    .catch(()=>{
-        thinking.remove();
-        add("Error contacting server","bot");
-    });
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    thinking.remove();
+    add(d.response,"bot");
+  })
+  .catch(()=>{
+    thinking.remove();
+    add("Error contacting server","bot");
+  });
  
-    msg.value="";
+  msg.value="";
 }
  
 msg.addEventListener("keydown",e=>{
-    if(e.key==="Enter") send();
+  if(e.key==="Enter") send();
 });
  
 </script>
