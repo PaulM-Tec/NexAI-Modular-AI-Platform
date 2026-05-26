@@ -15,14 +15,13 @@ body {
  
 .app {
   width:92%;
-  max-width:400px;
-  height:75vh;
+  max-width:380px;
+  height:72vh;
   margin-top:25px;
   display:flex;
   flex-direction:column;
   background:white;
   border-radius:12px;
-  box-shadow:0 5px 20px rgba(0,0,0,0.2);
 }
  
 .header {
@@ -41,15 +40,12 @@ body {
 }
  
 .msg {
-  display:inline-block;
-  width:fit-content;
   max-width:75%;
   padding:10px;
   margin:6px 0;
   border-radius:10px;
   font-size:13px;
   white-space:pre-wrap;
-  word-break:break-word;
 }
  
 .user {
@@ -69,13 +65,8 @@ body {
 }
  
 input { flex:1; padding:8px; }
+button { padding:8px; background:#0078d7; color:white; border:none; }
  
-button {
-  padding:8px;
-  background:#0078d7;
-  color:white;
-  border:none;
-}
 </style>
 </head>
  
@@ -83,7 +74,6 @@ button {
  
 <div class="app">
 <div class="header">🚗 NexAI Vehicle</div>
- 
 <div id="chat" class="chat"></div>
  
 <div class="input">
@@ -94,9 +84,9 @@ button {
  
 <script>
 function add(text,type){
-  const d=document.createElement("div");
+  let d=document.createElement("div");
   d.className="msg "+type;
-  d.innerHTML=(type==="bot")?marked.parse(text):text;
+  d.innerHTML=type==="bot"?marked.parse(text):text;
   chat.appendChild(d);
   chat.scrollTop=chat.scrollHeight;
 }
@@ -107,7 +97,7 @@ function send(){
  
   add(text,"user");
  
-  const thinking=document.createElement("div");
+  let thinking=document.createElement("div");
   thinking.className="msg bot";
   thinking.innerText="Thinking...";
   chat.appendChild(thinking);

@@ -4,6 +4,9 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI
  
+# -------------------------
+# ENV
+# -------------------------
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
@@ -11,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
  
 # -------------------------
-# VEHICLE GPT
+# VEHICLE AI
 # -------------------------
 def vehicle_ai(msg):
     response = client.chat.completions.create(
@@ -19,16 +22,25 @@ def vehicle_ai(msg):
         messages=[
             {
                 "role": "system",
-                "content": "Automotive assistant only. No IT answers."
+                "content": (
+                    "You are an automotive assistant.\n"
+                    "Give short, structured answers.\n\n"
+                    "Format:\n"
+                    "Title\n"
+                    "Short explanation\n"
+                    "Bullet points or steps\n\n"
+                    "No IT topics."
+                )
             },
             {"role": "user", "content": msg}
-        ]
+        ],
+        max_tokens=150
     )
     return response.choices[0].message.content
  
  
 # -------------------------
-# IT GPT
+# IT AI (ADMIN LEVEL)
 # -------------------------
 def it_ai(msg):
     response = client.chat.completions.create(
@@ -37,30 +49,62 @@ def it_ai(msg):
             {
                 "role": "system",
                 "content": (
-                    "Enterprise IT Admin assistant.\n"
-                    "- Use PowerShell or Exchange Admin Center\n"
-                    "- No Outlook user steps\n"
+                    "You are NexAI Enterprise IT Assistant.\n\n"
+ 
+                    "User:\n"
+                    "- Global Admin\n"
+                    "- Works in:\n"
+                    "  • Microsoft 365 Admin Center\n"
+                    "  • Exchange Admin Center\n"
+                    "  • Entra / Azure Portal\n"
+                    "  • App Registrations\n\n"
+ 
+                    "Rules:\n"
+                    "- Backend/admin ONLY\n"
+                    "- Use PowerShell or Admin Center\n"
+                    "- NO Outlook instructions\n\n"
+ 
+                    "FORMAT STRICT:\n"
+                    "**Title**\n"
+                    "One-line explanation\n\n"
+                    "**Steps**:\n"
+                    "- Step 1\n"
+                    "- Step 2\n\n"
+                    "**Command (if needed)**:\n"
+                    "```powershell\ncommand\n```\n\n"
+                    "Keep it SHORT."
                 )
             },
             {"role": "user", "content": msg}
-        ]
+        ],
+        max_tokens=180
     )
+ 
     return response.choices[0].message.content
  
  
 # -------------------------
-# ROUTER
+# ROUTER (CORRECTED)
 # -------------------------
 def detect(msg):
+ 
     msg = msg.lower()
  
-    if any(w in msg for w in ["car","engine","oil","leak","vehicle","brake"]):
-        return "vehicle"
- 
-    if any(w in msg for w in ["exchange","mailbox","azure","group","tenant","password"]):
+    # IT FIRST
+    if any(w in msg for w in [
+        "api", "app", "permission", "azure",
+        "entra", "exchange", "mailbox",
+        "tenant", "group", "password"
+    ]):
         return "it"
  
-    return "vehicle"
+    # VEHICLE
+    if any(w in msg for w in [
+        "car","engine","oil","leak","vehicle","brake"
+    ]):
+        return "vehicle"
+ 
+    return "it"
  
  
 # -------------------------
@@ -78,11 +122,10 @@ def vehicle_ui():
 def it_ui():
     return send_from_directory(".", "index_it.html")
  
- 
 @app.post("/chat")
 def chat():
     data = request.get_json()
-    msg = data.get("message","")
+    msg = data.get("message", "")
  
     if detect(msg) == "vehicle":
         reply = vehicle_ai(msg)
@@ -92,5 +135,8 @@ def chat():
     return jsonify({"response": reply})
  
  
+# -------------------------
+# RUN
+# -------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT",5000)))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
