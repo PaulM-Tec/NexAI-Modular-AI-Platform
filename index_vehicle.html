@@ -5,64 +5,108 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
-body { margin:0; font-family:Arial; background:#f0f2f5; display:flex; justify-content:center;}
+body { margin:0; background:#f0f2f5; display:flex; justify-content:center; }
  
-.app { width:100%; max-width:420px; height:88vh; display:flex; flex-direction:column; background:white; }
+.app {
+  width:90%;
+  max-width:420px;
+  height:80vh;
+  margin:20px auto;
+  display:flex;
+  flex-direction:column;
+  background:white;
+  border-radius:12px;
+  box-shadow:0 5px 20px rgba(0,0,0,0.2);
+}
  
-.header { background:#0078d7; color:white; padding:10px; text-align:center; font-size:14px;}
+.header {
+  padding:10px;
+  background:#0078d7;
+  color:white;
+  text-align:center;
+}
  
-.chat { flex:1; overflow-y:auto; padding:8px;}
+.chat {
+  flex:1;
+  overflow-y:auto;
+  padding:10px;
+}
  
-.msg { margin:5px 0; padding:8px; border-radius:8px; max-width:70%; font-size:13px;}
-.user { background:#0078d7; color:white; margin-left:auto;}
-.bot { background:#e5e5e5;}
+.msg {
+  display:inline-block;
+  margin:5px 0;
+  padding:8px;
+  border-radius:8px;
+  max-width:70%;
+  font-size:13px;
+  word-wrap:break-word;
+}
  
-.input { display:flex; padding:6px; border-top:1px solid #ccc;}
-input { flex:1; padding:8px;}
-button { padding:8px; background:#0078d7; color:white; border:none;}
+.user { background:#0078d7; color:white; margin-left:auto; }
+.bot { background:#e5e5e5; }
+ 
+.input {
+  display:flex;
+  padding:8px;
+  border-top:1px solid #ccc;
+}
+ 
+input { flex:1; padding:8px; }
+button { padding:8px; background:#0078d7; color:white; border:none; }
+ 
 </style>
 </head>
  
 <body>
+ 
 <div class="app">
 <div class="header">🚗 NexAI Vehicle</div>
+ 
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg" placeholder="Ask vehicle..." />
+<input id="msg">
 <button onclick="send()">Send</button>
 </div>
 </div>
  
 <script>
+ 
 let session=Date.now();
  
 function add(t,type){
-let d=document.createElement("div");
-d.className="msg "+type;
-d.innerHTML=type==="bot"?marked.parse(t):t;
-chat.appendChild(d);
-chat.scrollTop=chat.scrollHeight;
+  let d=document.createElement("div");
+  d.className="msg "+type;
+  d.innerHTML=(type==="bot")?marked.parse(t):t;
+  chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
 }
  
 function send(){
-let t=msg.value.trim(); if(!t)return;
-add(t,"user");
+  let t=msg.value.trim(); if(!t)return;
  
-let thinking=document.createElement("div");
-thinking.className="msg bot";
-thinking.innerText="Thinking...";
-chat.appendChild(thinking);
+  add(t,"user");
  
-fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({message:t,session_id:session})})
-.then(r=>r.json())
-.then(d=>{ chat.removeChild(chat.lastChild); add(d.response,"bot");})
+  let thinking=document.createElement("div");
+  thinking.className="msg bot";
+  thinking.innerText="Thinking...";
+  chat.appendChild(thinking);
  
-msg.value="";
+  fetch("/chat",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({message:t})
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    chat.removeChild(thinking);
+    add(d.response,"bot");
+  });
+ 
+  msg.value="";
 }
  
 msg.addEventListener("keydown",e=>{ if(e.key==="Enter") send(); });
+ 
 </script>
 </body>
 </html>
