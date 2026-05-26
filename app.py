@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -14,57 +13,55 @@ CORS(app)
 # -------------------------
 # VEHICLE GPT
 # -------------------------
-def ask_vehicle_gpt(message):
-    return client.chat.completions.create(
+def vehicle_ai(msg):
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content":
-             "Automotive assistant only. Focus on vehicle issues."},
-            {"role": "user", "content": message}
-        ],
-        max_tokens=150
-    ).choices[0].message.content
+            {
+                "role": "system",
+                "content": "Automotive assistant only. No IT answers."
+            },
+            {"role": "user", "content": msg}
+        ]
+    )
+    return response.choices[0].message.content
+ 
  
 # -------------------------
-# IT GPT (ADMIN CONTEXT)
+# IT GPT
 # -------------------------
-def ask_it_gpt(message):
-    return client.chat.completions.create(
+def it_ai(msg):
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content":
-             "Enterprise IT admin assistant. Use Exchange Admin Center or PowerShell. No Outlook steps."},
-            {"role": "user", "content": message}
-        ],
-        max_tokens=200
-    ).choices[0].message.content
+            {
+                "role": "system",
+                "content": (
+                    "Enterprise IT Admin assistant.\n"
+                    "- Use PowerShell or Exchange Admin Center\n"
+                    "- No Outlook user steps\n"
+                )
+            },
+            {"role": "user", "content": msg}
+        ]
+    )
+    return response.choices[0].message.content
+ 
  
 # -------------------------
-# ROUTER (FIXED)
+# ROUTER
 # -------------------------
-def detect_module(msg):
+def detect(msg):
     msg = msg.lower()
  
-    if any(w in msg for w in ["car","engine","oil","brake","vehicle","leak","smoke"]):
+    if any(w in msg for w in ["car","engine","oil","leak","vehicle","brake"]):
         return "vehicle"
  
-    if any(w in msg for w in ["exchange","mailbox","azure","aad","tenant","group","password"]):
+    if any(w in msg for w in ["exchange","mailbox","azure","group","tenant","password"]):
         return "it"
  
     return "vehicle"
  
-# -------------------------
-# HANDLERS
-# -------------------------
-def handle_vehicle(msg):
-    if "price" in msg.lower():
-        return "Oil Change: R800–1500\nBrake Service: R2500–5500"
-    return ask_vehicle_gpt(msg)
- 
-def handle_it(msg):
-    if "distribution group" in msg.lower():
-        return "New-DistributionGroup -Name \"GroupName\""
-    return ask_it_gpt(msg)
  
 # -------------------------
 # ROUTES
@@ -81,19 +78,19 @@ def vehicle_ui():
 def it_ui():
     return send_from_directory(".", "index_it.html")
  
+ 
 @app.post("/chat")
 def chat():
     data = request.get_json()
-    message = data.get("message", "")
+    msg = data.get("message","")
  
-    module = detect_module(message)
- 
-    if module == "vehicle":
-        reply = handle_vehicle(message)
+    if detect(msg) == "vehicle":
+        reply = vehicle_ai(msg)
     else:
-        reply = handle_it(message)
+        reply = it_ai(msg)
  
     return jsonify({"response": reply})
  
+ 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT",5000)))
