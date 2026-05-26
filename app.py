@@ -9,15 +9,15 @@ from dotenv import load_dotenv
 from openai import OpenAI
  
 # -------------------------
-# ENV CONFIG
+# ENV
 # -------------------------
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 # -------------------------
-# GPT FUNCTION (ADMIN-LEVEL FIX)
+# GPT - VEHICLE
 # -------------------------
-def ask_gpt(message):
+def ask_vehicle_gpt(message):
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -25,44 +25,58 @@ def ask_gpt(message):
                 {
                     "role": "system",
                     "content": (
-                        "You are NexAI, an Enterprise IT Admin Assistant.\n\n"
- 
-                        "Context:\n"
-                        "- The user is a Global Administrator\n"
-                        "- Works in Azure AD, Exchange Online, Hybrid environment\n"
-                        "- Uses Exchange Admin Center and PowerShell\n"
-                        "- DOES NOT access mailboxes via Outlook\n\n"
- 
-                        "Rules:\n"
-                        "- Respond from backend/admin perspective ONLY\n"
-                        "- Prefer Exchange Admin Center steps or PowerShell\n"
-                        "- DO NOT give Outlook or end-user instructions\n"
-                        "- Keep answers concise, structured, and practical\n\n"
- 
-                        "Style:\n"
-                        "- Use steps or commands\n"
-                        "- Be precise, not generic\n"
-                        "- Sound like a senior IT engineer"
+                        "You are an automotive assistant.\n"
+                        "- Focus ONLY on vehicles\n"
+                        "- Diagnostics, faults, causes, maintenance\n"
+                        "- Be practical and concise\n"
+                        "- No IT or unrelated topics"
                     )
                 },
                 {"role": "user", "content": message}
             ],
-            max_tokens=220
+            max_tokens=150
         )
- 
         return response.choices[0].message.content
- 
-    except Exception as e:
-        print("GPT ERROR:", e)
-        return "NexAI: Unable to process request right now."
+    except:
+        return "Vehicle assistant unavailable."
  
 # -------------------------
-# DATABASE (LIGHTWEIGHT)
+# GPT - IT ADMIN
+# -------------------------
+def ask_it_gpt(message):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an Enterprise IT Admin Assistant.\n\n"
+                        "Context:\n"
+                        "- User is a Global Admin\n"
+                        "- Works in Exchange Admin Center, Azure AD, Hybrid\n"
+                        "- Uses PowerShell\n\n"
+                        "Rules:\n"
+                        "- Respond as backend admin ONLY\n"
+                        "- Prefer EAC steps or PowerShell\n"
+                        "- No Outlook or end-user instructions\n"
+                        "- Be structured, direct, practical\n\n"
+                        "Sound like a senior M365 engineer."
+                    )
+                },
+                {"role": "user", "content": message}
+            ],
+            max_tokens=200
+        )
+        return response.choices[0].message.content
+    except:
+        return "IT assistant unavailable."
+ 
+# -------------------------
+# DATABASE
 # -------------------------
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "app.db"
- 
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(f"sqlite:///{BASE_DIR / 'app.db'}")
 metadata = MetaData()
  
 InteractionLogs = Table(
@@ -76,26 +90,35 @@ InteractionLogs = Table(
 metadata.create_all(engine)
  
 # -------------------------
-# APP INIT
+# APP
 # -------------------------
 app = Flask(__name__)
 CORS(app)
  
 # -------------------------
-# ROUTER (IMPROVED)
+# ROUTER (FIXED PROPERLY)
 # -------------------------
 def detect_module(message):
  
     msg = message.lower()
  
-    if any(keyword in msg for keyword in [
-        "exchange", "mailbox", "delegate", "permission",
-        "aad", "azure", "tenant", "outlook",
-        "distribution", "dl", "group", "vpn",
-        "network", "login", "password"
+    # VEHICLE FIRST (PRIORITY)
+    if any(word in msg for word in [
+        "car", "vehicle", "engine", "oil",
+        "brake", "service", "tyre", "tire",
+        "leak", "smoke"
+    ]):
+        return "vehicle"
+ 
+    # IT SECOND
+    if any(word in msg for word in [
+        "exchange", "mailbox", "azure", "aad",
+        "tenant", "distribution", "group",
+        "password", "login"
     ]):
         return "it"
  
+    # SAFE DEFAULT
     return "vehicle"
  
 # -------------------------
@@ -105,62 +128,48 @@ def handle_vehicle(message):
  
     msg = message.lower()
  
-    if "price" in msg or "cost" in msg:
+    if "price" in msg:
         return (
-            "Service pricing:\n\n"
-            "- Oil Change: R800 – R1500\n"
-            "- Brake Service: R2500 – R5500\n"
-            "- General Service: R1200 – R3000"
+            "Service estimates:\n\n"
+            "- Oil change: R800 – R1500\n"
+            "- Brake service: R2500 – R5500\n"
         )
  
     if "book" in msg:
-        return "Booking flow available. Please specify service type."
+        return "Booking feature available. Specify service type."
  
-    return ask_gpt(message)
+    return ask_vehicle_gpt(message)
  
 # -------------------------
-# IT MODULE (ENTERPRISE FIX)
+# IT MODULE
 # -------------------------
 def handle_it(message):
  
     msg = message.lower()
  
-    # VERY TARGETED RESPONSES (ONLY WHERE NECESSARY)
- 
     if "distribution group" in msg:
         return (
             "Exchange Admin Center:\n"
-            "Recipients → Groups → Add Distribution Group\n\n"
+            "Recipients → Groups → New → Distribution List\n\n"
             "PowerShell:\n"
-            "New-DistributionGroup -Name \"GroupName\" "
-            "-PrimarySmtpAddress group@company.com"
+            "New-DistributionGroup -Name \"GroupName\""
         )
  
     if "enable mailbox" in msg:
         return (
-            "Hybrid Setup:\n\n"
-            "Enable-RemoteMailbox -Identity user "
+            "Hybrid mailbox enablement:\n\n"
+            "Enable-RemoteMailbox -Identity user\n"
             "-RemoteRoutingAddress user@tenant.mail.onmicrosoft.com"
         )
  
-    if "reset password" in msg:
-        return (
-            "Azure AD:\n\n"
-            "Portal → Users → Reset Password\n\n"
-            "OR use PowerShell:\n"
-            "Set-AzureADUserPassword"
-        )
- 
-    # EVERYTHING ELSE USES GPT (CRITICAL FIX)
-    return ask_gpt(message)
+    return ask_it_gpt(message)
  
 # -------------------------
 # ROUTES
 # -------------------------
- 
 @app.get("/")
 def home():
-    return "NexAI running. Use /vehicle or /it"
+    return "Use /vehicle or /it"
  
 @app.get("/vehicle")
 def vehicle_ui():
@@ -179,32 +188,15 @@ def chat():
  
     module = detect_module(message)
  
-    if module == "it":
-        reply = handle_it(message)
-    else:
+    if module == "vehicle":
         reply = handle_vehicle(message)
- 
-    # LOGGING (optional safe)
-    try:
-        with engine.begin() as conn:
-            conn.execute(
-                InteractionLogs.insert().values(
-                    session_id=session_id,
-                    message=message,
-                    created_at=datetime.utcnow()
-                )
-            )
-    except Exception as e:
-        print("LOG ERROR:", e)
+    else:
+        reply = handle_it(message)
  
     return jsonify({"response": reply})
  
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
- 
 # -------------------------
-# RUN (RENDER SAFE)
+# RUN
 # -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
