@@ -3,9 +3,8 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-<!-- FIXED SCRIPT -->
-https://cdn.jsdelivr.net/npm/marked/marked.min.jsscript>
- 
+<!-- FIXED SCRIPT (THIS IS THE KEY FIX) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min
 <style>
 body {
   margin:0;
@@ -13,11 +12,12 @@ body {
   font-family:Arial;
 }
  
+/* CENTERED PANEL */
 .app {
   width:95%;
   max-width:420px;
-  margin:15px auto;
-  height:78vh;
+  margin:20px auto;
+  height:80vh;
   display:flex;
   flex-direction:column;
   background:#252542;
@@ -39,12 +39,15 @@ body {
   flex-direction:column;
 }
  
+/* MESSAGE */
 .msg {
   max-width:70%;
   padding:10px;
-  margin:4px 0;
+  margin:5px 0;
   border-radius:10px;
   font-size:13px;
+  line-height:1.4;
+  white-space: pre-line;   /* FIX FORMATTING */
 }
  
 .user {
@@ -56,6 +59,15 @@ body {
 .bot {
   background:#2d2d44;
   color:white;
+}
+ 
+/* CLEAN STRUCTURE */
+.msg ul {
+  padding-left:16px;
+}
+ 
+.msg li {
+  margin:3px 0;
 }
  
 .input {
@@ -84,13 +96,16 @@ button {
 <body>
  
 <div class="app">
+ 
 <div class="header">🖥️ NexAI IT</div>
+ 
 <div id="chat" class="chat"></div>
  
 <div class="input">
 <input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)" />
 <button onclick="send()">Send</button>
 </div>
+ 
 </div>
  
 <script>
@@ -99,13 +114,14 @@ const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
 const session = Date.now();
  
+/* ADD MESSAGE */
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
  
-  try {
-    d.innerHTML = type==="bot" ? marked.parse(text) : text;
-  } catch {
+  if(type==="bot"){
+    d.innerHTML = marked.parse(text);
+  } else {
     d.textContent = text;
   }
  
@@ -113,6 +129,7 @@ function add(text,type){
   chat.scrollTop=chat.scrollHeight;
 }
  
+/* SEND */
 function send(){
   const t = msgInput.value.trim();
   if(!t) return;
@@ -147,13 +164,11 @@ function send(){
 }
  
 /* ENTER FIX */
-document.addEventListener("DOMContentLoaded", () => {
-  msgInput.addEventListener("keydown", function(e){
-    if(e.key==="Enter"){
-      e.preventDefault();
-      send();
-    }
-  });
+msgInput.addEventListener("keydown", function(e){
+  if(e.key === "Enter"){
+    e.preventDefault();
+    send();
+  }
 });
  
 </script>
