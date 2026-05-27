@@ -162,6 +162,13 @@ msgInput.addEventListener("keydown", e=>{
   }
 });
  
+/* LOCK PAGE SCROLL (REAL FIX) */
+document.body.addEventListener("touchmove", function (e) {
+    if (!e.target.closest(".chat")) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
 </script>
  
 </body>
