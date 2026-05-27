@@ -65,7 +65,7 @@ def create_calendar_event(day, time):
         }
  
         service.events().insert(
-            calendarId='primary',
+            calendarId='170013714c22b8ae82dd253ea8480175e8ad8708ec57997dddd64a411be8ad41@group.calendar.google.com',
             body=event
         ).execute()
  
