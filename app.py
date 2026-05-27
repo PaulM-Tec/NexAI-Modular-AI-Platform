@@ -164,7 +164,7 @@ def vehicle_ai(msg, session):
  
             return {
                 "text": (
-                    "Booking Confirmed\n\n"
+                    "NEW LOGIC RUNNING\n\nBooking Confirmed\n\n"
                     f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
                     f"Day: {day}\n"
                     f"Time: {time}\n"
