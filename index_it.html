@@ -2,90 +2,89 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
-body{
-  margin:0;
-  background:#1e1e2f;
-  font-family:Arial;
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial;
+  background: #1e1e2f;
 }
  
-.app{
-  width:95%;
-  max-width:420px;
-  height:80vh;
-  margin:20px auto;
-  display:flex;
-  flex-direction:column;
-  background:#252542;
-  border-radius:12px;
+.app {
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: #252542;
 }
  
-.header{
-  padding:12px;
-  text-align:center;
-  background:#111;
-  color:#00d4ff;
-  position:sticky;
-  top:0;
-  z-index:10;
+.header {
+  padding: 12px;
+  text-align: center;
+  background: #111;
+  color: #00d4ff;
+  flex-shrink: 0;
 }
  
-.chat{
-  flex:1;
-  overflow-y:auto;
-  padding:10px;
-  display:flex;
-  flex-direction:column;
+.chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
 }
  
-.msg{
-  max-width:70%;
-  padding:10px;
-  margin:4px 0;
-  border-radius:10px;
-  font-size:13px;
-  line-height:1.3;
+.msg {
+  max-width: 70%;
+  padding: 10px;
+  margin: 4px 0;
+  border-radius: 10px;
+  font-size: 13px;
 }
  
-.user{
-  background:#0078d7;
-  color:white;
-  align-self:flex-end;
+.user {
+  background: #0078d7;
+  color: white;
+  align-self: flex-end;
 }
  
-.bot{
-  background:#2d2d44;
-  color:white;
+.bot {
+  background: #2d2d44;
+  color: white;
 }
  
-.msg pre{
-  background:#111;
-  padding:6px;
-  border-radius:5px;
-  font-size:12px;
+.msg pre {
+  background: #111;
+  padding: 6px;
+  border-radius: 5px;
+  font-size: 12px;
 }
  
-.input{
-  display:flex;
-  padding:8px;
-  background:#111;
+.input {
+  display: flex;
+  padding: 8px;
+  background: #111;
+  flex-shrink: 0;
 }
  
-input{
-  flex:1;
-  padding:8px;
-  background:#333;
-  color:white;
-  border:none;
+input {
+  flex: 1;
+  padding: 8px;
+  background: #333;
+  color: white;
+  border: none;
 }
  
-button{
-  padding:8px;
-  background:#0078d7;
-  color:white;
-  border:none;
+button {
+  padding: 8px;
+  background: #0078d7;
+  color: white;
+  border: none;
 }
 </style>
 </head>
@@ -93,38 +92,41 @@ button{
 <body>
  
 <div class="app">
+ 
 <div class="header">🖥️ NexAI IT</div>
+ 
 <div id="chat" class="chat"></div>
  
 <div class="input">
 <input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)">
 <button onclick="send()">Send</button>
 </div>
+ 
 </div>
  
 <script>
  
-const chat=document.getElementById("chat");
-const msgInput=document.getElementById("msg");
-const session=Date.now();
+const chat = document.getElementById("chat");
+const msgInput = document.getElementById("msg");
+const session = Date.now();
  
 function add(text,type){
-  const d=document.createElement("div");
-  d.className="msg "+type;
-  d.innerHTML=type==="bot"?marked.parse(text):text;
+  const d = document.createElement("div");
+  d.className = "msg " + type;
+  d.innerHTML = type === "bot" ? marked.parse(text) : text;
   chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
+  chat.scrollTop = chat.scrollHeight;
 }
  
 function send(){
-  const t=msgInput.value.trim();
+  const t = msgInput.value.trim();
   if(!t) return;
  
   add(t,"user");
  
-  const thinking=document.createElement("div");
-  thinking.className="msg bot";
-  thinking.innerText="Thinking...";
+  const thinking = document.createElement("div");
+  thinking.className = "msg bot";
+  thinking.innerText = "Thinking...";
   chat.appendChild(thinking);
  
   fetch("/chat",{
@@ -142,10 +144,10 @@ function send(){
     add(d.text,"bot");
   });
  
-  msgInput.value="";
+  msgInput.value = "";
 }
  
-msgInput.addEventListener("keydown",e=>{
+msgInput.addEventListener("keydown", e=>{
   if(e.key==="Enter"){
     e.preventDefault();
     send();
