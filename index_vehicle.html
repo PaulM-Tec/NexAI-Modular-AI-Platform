@@ -2,23 +2,23 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+ 
+https://cdn.jsdelivr.net/npm/marked/marked.min.jsscript>
  
 <style>
 body {
   margin:0;
+  overflow:hidden; /* CRITICAL FIX */
   background:#f0f2f5;
   font-family:Arial;
- 
   display:flex;
   justify-content:center;
 }
  
-/* CONTROLLED SIZE (NO FULL SCREEN) */
 .app {
   width:95%;
   max-width:420px;
-  height:75vh;                 /* controlled height */
+  height:75vh;
   margin-top:20px;
   display:flex;
   flex-direction:column;
@@ -26,16 +26,13 @@ body {
   border-radius:12px;
 }
  
-/* HEADER (VISIBLE WITHIN CONTAINER) */
 .header {
   padding:12px;
   text-align:center;
   background:#0078d7;
   color:white;
-  flex-shrink:0;
 }
  
-/* CHAT SCROLL ONLY */
 .chat {
   flex:1;
   overflow-y:auto;
@@ -44,7 +41,6 @@ body {
   flex-direction:column;
 }
  
-/* MESSAGES */
 .msg {
   max-width:70%;
   padding:10px;
@@ -63,12 +59,10 @@ body {
   background:#e5e5e5;
 }
  
-/* INPUT */
 .input {
   display:flex;
   padding:8px;
   border-top:1px solid #ddd;
-  flex-shrink:0;
 }
  
 input {

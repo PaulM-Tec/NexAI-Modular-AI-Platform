@@ -2,18 +2,20 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+ 
+https://cdn.jsdelivr.net/npm/marked/marked.min.js
  
 <style>
-body{
+body {
   margin:0;
+  overflow:hidden; /* CRITICAL FIX */
   background:#1e1e2f;
   font-family:Arial;
   display:flex;
   justify-content:center;
 }
  
-.app{
+.app {
   width:95%;
   max-width:420px;
   height:75vh;
@@ -24,15 +26,14 @@ body{
   border-radius:12px;
 }
  
-.header{
+.header {
   padding:12px;
   text-align:center;
   background:#111;
   color:#00d4ff;
-  flex-shrink:0;
 }
  
-.chat{
+.chat {
   flex:1;
   overflow-y:auto;
   padding:10px;
@@ -40,7 +41,7 @@ body{
   flex-direction:column;
 }
  
-.msg{
+.msg {
   max-width:70%;
   padding:10px;
   margin:4px 0;
@@ -48,31 +49,30 @@ body{
   font-size:13px;
 }
  
-.user{
+.user {
   background:#0078d7;
   color:white;
   align-self:flex-end;
 }
  
-.bot{
+.bot {
   background:#2d2d44;
   color:white;
 }
  
-.msg pre{
+.msg pre {
   background:#111;
   padding:6px;
   border-radius:5px;
 }
  
-.input{
+.input {
   display:flex;
   padding:8px;
   background:#111;
-  flex-shrink:0;
 }
  
-input{
+input {
   flex:1;
   padding:8px;
   background:#333;
@@ -80,7 +80,7 @@ input{
   border:none;
 }
  
-button{
+button {
   padding:8px;
   background:#0078d7;
   color:white;
@@ -92,13 +92,16 @@ button{
 <body>
  
 <div class="app">
+ 
 <div class="header">🖥️ NexAI IT</div>
+ 
 <div id="chat" class="chat"></div>
  
 <div class="input">
 <input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)">
 <button onclick="send()">Send</button>
 </div>
+ 
 </div>
  
 <script>
