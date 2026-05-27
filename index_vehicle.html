@@ -11,31 +11,30 @@ body {
   font-family:Arial;
 }
  
+/* CENTERED APP (NO FIXED POSITION) */
 .app {
   width:95%;
   max-width:420px;
-  position:fixed;
-  top:10px;
-  bottom:10px;
-  left:50%;
-  transform:translateX(-50%);
+  height:80vh;
+  margin:20px auto;
   display:flex;
   flex-direction:column;
-  background:#252542; /* or white for vehicle */
+  background:white;
   border-radius:12px;
 }
  
+/* HEADER LOCKED */
 .header {
   padding:12px;
   text-align:center;
-  background:#111; /* or blue for vehicle */
-  color:#00d4ff;
- 
+  background:#0078d7;
+  color:white;
   position:sticky;
   top:0;
   z-index:10;
 }
  
+/* ONLY CHAT SCROLLS */
 .chat {
   flex:1;
   overflow-y:auto;
@@ -44,12 +43,14 @@ body {
   flex-direction:column;
 }
  
+/* MESSAGES */
 .msg {
   max-width:70%;
   padding:10px;
   margin:4px 0;
   border-radius:10px;
   font-size:13px;
+  line-height:1.3;
 }
  
 .user {
@@ -62,13 +63,11 @@ body {
   background:#e5e5e5;
 }
  
+/* INPUT STAYS AT BOTTOM NATURALLY */
 .input {
   display:flex;
   padding:8px;
-  background:#111;
- 
-  position:sticky;
-  bottom:0;
+  border-top:1px solid #ddd;
 }
  
 input {
@@ -88,31 +87,33 @@ button {
 <body>
  
 <div class="app">
+ 
 <div class="header">🚗 NexAI Vehicle</div>
  
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg" placeholder="Describe your issue (e.g. oil leak, book service)" />
+<input id="msg" placeholder="Describe your issue (e.g. oil leak, book service)">
 <button onclick="send()">Send</button>
 </div>
+ 
 </div>
  
 <script>
-const chat = document.getElementById("chat");
-const msg = document.getElementById("msg");
-const session = Date.now();
+const chat=document.getElementById("chat");
+const msgInput=document.getElementById("msg");
+const session=Date.now();
  
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
-  d.innerHTML = type==="bot" ? marked.parse(text) : text;
+  d.innerHTML=type==="bot"?marked.parse(text):text;
   chat.appendChild(d);
   chat.scrollTop=chat.scrollHeight;
 }
  
 function send(){
-  let t = msg.value.trim();
+  const t=msgInput.value.trim();
   if(!t) return;
  
   add(t,"user");
@@ -137,11 +138,14 @@ function send(){
     add(d.text,"bot");
   });
  
-  msg.value="";
+  msgInput.value="";
 }
  
-msg.addEventListener("keydown",e=>{
-  if(e.key==="Enter") send();
+msgInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    send();
+  }
 });
 </script>
  

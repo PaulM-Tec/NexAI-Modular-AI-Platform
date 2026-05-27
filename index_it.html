@@ -2,42 +2,37 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
- 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
-body {
+body{
   margin:0;
   background:#1e1e2f;
   font-family:Arial;
 }
  
-.app {
+.app{
   width:95%;
   max-width:420px;
-  position:fixed;
-  top:10px;
-  bottom:10px;
-  left:50%;
-  transform:translateX(-50%);
+  height:80vh;
+  margin:20px auto;
   display:flex;
   flex-direction:column;
-  background:#252542; /* or white for vehicle */
+  background:#252542;
   border-radius:12px;
 }
  
-.header {
+.header{
   padding:12px;
   text-align:center;
-  background:#111; /* or blue for vehicle */
+  background:#111;
   color:#00d4ff;
- 
   position:sticky;
   top:0;
   z-index:10;
 }
  
-.chat {
+.chat{
   flex:1;
   overflow-y:auto;
   padding:10px;
@@ -45,56 +40,40 @@ body {
   flex-direction:column;
 }
  
-/* FIXED SPACING */
-.msg {
+.msg{
   max-width:70%;
-  padding:8px 10px;
-  margin:3px 0;
+  padding:10px;
+  margin:4px 0;
   border-radius:10px;
   font-size:13px;
-  line-height:1.25;
-  white-space:normal;
-  word-break:break-word;
+  line-height:1.3;
 }
  
-.user {
+.user{
   background:#0078d7;
   color:white;
   align-self:flex-end;
 }
  
-.bot {
+.bot{
   background:#2d2d44;
   color:white;
 }
  
-/* REMOVE GAPS */
-.msg p { margin:2px 0; }
-.msg ul { margin:2px 0; padding-left:14px; }
-.msg li { margin:2px 0; }
- 
-/* COMMAND FIX */
-.msg pre, .msg code {
-  display:block;
+.msg pre{
   background:#111;
   padding:6px;
-  margin:4px 0;
   border-radius:5px;
   font-size:12px;
-  white-space:pre-wrap;
 }
  
-/* INPUT */
-.input {
+.input{
   display:flex;
   padding:8px;
   background:#111;
- 
-  position:sticky;
-  bottom:0;
 }
  
-input {
+input{
   flex:1;
   padding:8px;
   background:#333;
@@ -102,7 +81,7 @@ input {
   border:none;
 }
  
-button {
+button{
   padding:8px;
   background:#0078d7;
   color:white;
@@ -118,27 +97,27 @@ button {
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)" />
+<input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)">
 <button onclick="send()">Send</button>
 </div>
 </div>
  
 <script>
  
-const chat = document.getElementById("chat");
-const msgInput = document.getElementById("msg");
-const session = Date.now();
+const chat=document.getElementById("chat");
+const msgInput=document.getElementById("msg");
+const session=Date.now();
  
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
-  d.innerHTML = type==="bot" ? marked.parse(text) : text;
+  d.innerHTML=type==="bot"?marked.parse(text):text;
   chat.appendChild(d);
   chat.scrollTop=chat.scrollHeight;
 }
  
 function send(){
-  const t = msgInput.value.trim();
+  const t=msgInput.value.trim();
   if(!t) return;
  
   add(t,"user");
@@ -160,13 +139,13 @@ function send(){
   .then(r=>r.json())
   .then(d=>{
     thinking.remove();
-    add(d.text,"bot");  // uses structured output safely
+    add(d.text,"bot");
   });
  
   msgInput.value="";
 }
  
-msgInput.addEventListener("keydown", e=>{
+msgInput.addEventListener("keydown",e=>{
   if(e.key==="Enter"){
     e.preventDefault();
     send();
