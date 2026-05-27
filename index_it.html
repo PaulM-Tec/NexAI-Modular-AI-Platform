@@ -6,26 +6,25 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
-body {
+body{
   margin:0;
   font-family:Arial;
   background:#1e1e2f;
 }
  
-/* CENTERED APP */
-.app {
+.app{
   width:95%;
   max-width:420px;
+  height:75vh;
   margin:20px auto;
   display:flex;
   flex-direction:column;
   background:#252542;
   border-radius:12px;
-  height:85vh; /* controlled, not fullscreen */
+  overflow:hidden;
 }
  
-/* HEADER */
-.header {
+.header{
   padding:12px;
   text-align:center;
   background:#111;
@@ -33,50 +32,51 @@ body {
 }
  
 /* CHAT */
-.chat {
+.chat{
   flex:1;
   overflow-y:auto;
   padding:10px;
-  padding-bottom:100px; /* prevents overlap */
+  padding-bottom:70px;
 }
  
-/* MESSAGES */
-.msg {
-  max-width:70%;
+/* MESSAGE FIXES */
+.msg{
+  max-width:75%;
   padding:10px;
   margin:5px 0;
   border-radius:10px;
   font-size:13px;
+  word-wrap:break-word;
 }
  
-.user {
+/* FIX LONG TEXT */
+.msg pre{
+  white-space:pre-wrap;
+  word-wrap:break-word;
+  background:#111;
+  padding:6px;
+  border-radius:5px;
+  font-size:12px;
+}
+ 
+.user{
   background:#0078d7;
   color:white;
   align-self:flex-end;
 }
  
-.bot {
+.bot{
   background:#2d2d44;
   color:white;
 }
  
-/* COMMAND BLOCK */
-.msg pre {
-  background:#111;
-  padding:6px;
-  border-radius:5px;
-}
- 
-/* INPUT */
-.input {
-  position:sticky;     /* KEY CHANGE */
-  bottom:0;
+.input{
   display:flex;
   padding:8px;
   background:#111;
 }
  
-input {
+input{
   flex:1;
   padding:8px;
   background:#333;
@@ -84,7 +84,7 @@ input {
   border:none;
 }
  
-button {
+button{
   padding:8px;
   background:#0078d7;
   color:white;
@@ -109,7 +109,6 @@ button {
 </div>
  
 <script>
- 
 const chat=document.getElementById("chat");
 const msgInput=document.getElementById("msg");
 const session=Date.now();
@@ -117,7 +116,7 @@ const session=Date.now();
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
-  d.innerHTML = type==="bot" ? marked.parse(text) : text;
+  d.innerHTML=type==="bot"?marked.parse(text):text;
   chat.appendChild(d);
  
   setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
@@ -158,7 +157,6 @@ msgInput.addEventListener("keydown",e=>{
     send();
   }
 });
- 
 </script>
  
 </body>
