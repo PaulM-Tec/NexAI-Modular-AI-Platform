@@ -26,7 +26,6 @@ sessions = {}
 # -------------------------
 def send_to_slack(message):
     webhook = os.getenv("SLACK_WEBHOOK_URL")
- 
     if not webhook:
         print("Slack webhook not set")
         return
@@ -36,8 +35,9 @@ def send_to_slack(message):
     except Exception as e:
         print("Slack error:", e)
  
+ 
 # -------------------------
-# GOOGLE CALENDAR FUNCTION
+# GOOGLE CALENDAR FUNCTION (FIXED FULLY)
 # -------------------------
 def create_calendar_event(day, time):
     try:
@@ -50,16 +50,42 @@ def create_calendar_event(day, time):
  
         service = build('calendar', 'v3', credentials=creds)
  
-        # TEMP STATIC EVENT (we will improve later)
+        # STEP 1: calculate correct date from selected day
+        today = datetime.now()
+ 
+        days_map = {
+            "monday": 0,
+            "tuesday": 1,
+            "wednesday": 2,
+            "thursday": 3,
+            "friday": 4
+        }
+ 
+        target_day = days_map[day.lower()]
+        days_ahead = (target_day - today.weekday()) % 7
+ 
+        if days_ahead == 0:
+            days_ahead = 7  # always next occurrence
+ 
+        booking_date = today + timedelta(days=days_ahead)
+ 
+        # STEP 2: build correct datetime
+        start_datetime = datetime.strptime(
+            f"{booking_date.strftime('%Y-%m-%d')} {time}",
+            "%Y-%m-%d %H:%M"
+        )
+ 
+        end_datetime = start_datetime + timedelta(hours=1)
+ 
         event = {
             'summary': 'Vehicle Service Booking',
             'description': f'Booking via NexAI\nDay: {day}\nTime: {time}',
             'start': {
-                'dateTime': '2026-06-10T10:00:00',
+                'dateTime': start_datetime.isoformat(),
                 'timeZone': 'Africa/Johannesburg',
             },
             'end': {
-                'dateTime': '2026-06-10T11:00:00',
+                'dateTime': end_datetime.isoformat(),
                 'timeZone': 'Africa/Johannesburg',
             }
         }
@@ -69,8 +95,13 @@ def create_calendar_event(day, time):
             body=event
         ).execute()
  
+        print("Event created:", booking_date, time)
+ 
+        return booking_date
+ 
     except Exception as e:
         print("Calendar error:", e)
+        return datetime.now()
  
  
 # -------------------------
@@ -126,15 +157,15 @@ def vehicle_ai(msg, session):
             time = session["times"][idx]
             day = session.get("selected_day", "")
  
-            # CREATE CALENDAR EVENT HERE
-            create_calendar_event(day, time)
+            # CREATE CALENDAR EVENT + GET DATE
+            booking_date = create_calendar_event(day, time)
  
             session.clear()
  
             return {
                 "text": (
                     "Booking Confirmed\n\n"
-                    f"Date: {datetime.now().strftime('%d/%m/%Y')}\n"
+                    f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
                     f"Day: {day}\n"
                     f"Time: {time}\n"
                     "Service Type: General Service"
@@ -166,6 +197,7 @@ def vehicle_ai(msg, session):
     return {
         "text": response.choices[0].message.content
     }
+ 
  
 # -------------------------
 # IT MODULE (SLACK)
@@ -217,6 +249,7 @@ Response:
         "text": reply
     }
  
+ 
 # -------------------------
 # ROUTES
 # -------------------------
@@ -232,7 +265,6 @@ def it_ui():
 def chat():
  
     data = request.get_json()
- 
     msg = data.get("message", "")
     module = data.get("module", "")
     session_id = data.get("session_id", "default")
@@ -248,6 +280,7 @@ def chat():
         result = it_ai(msg)
  
     return jsonify(result)
+ 
  
 # -------------------------
 # RUN
