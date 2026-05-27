@@ -3,28 +3,25 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-<!-- FIXED SCRIPT TAG -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
 body {
   margin:0;
-  background:#1e1e2f;
   font-family:Arial;
+  background:#1e1e2f;
 }
  
-/* APP (KEEP AS YOU HAD — FIXED CONTAINER) */
+/* CENTERED APP */
 .app {
-  position:fixed;
-  top:0;
-  left:50%;
-  transform:translateX(-50%);
-  width:100%;
+  width:95%;
   max-width:420px;
-  height:100%;
+  margin:20px auto;
   display:flex;
   flex-direction:column;
   background:#252542;
+  border-radius:12px;
+  height:85vh; /* controlled, not fullscreen */
 }
  
 /* HEADER */
@@ -33,24 +30,21 @@ body {
   text-align:center;
   background:#111;
   color:#00d4ff;
-  flex:0 0 auto;
 }
  
-/* CHAT (CRITICAL FIX HERE) */
+/* CHAT */
 .chat {
   flex:1;
   overflow-y:auto;
   padding:10px;
-  padding-bottom:80px;   /* FIX OVERLAP */
-  display:flex;
-  flex-direction:column;
+  padding-bottom:100px; /* prevents overlap */
 }
  
 /* MESSAGES */
 .msg {
   max-width:70%;
   padding:10px;
-  margin:4px 0;
+  margin:5px 0;
   border-radius:10px;
   font-size:13px;
 }
@@ -71,16 +65,15 @@ body {
   background:#111;
   padding:6px;
   border-radius:5px;
-  font-size:12px;
-  white-space:pre-wrap;
 }
  
 /* INPUT */
 .input {
+  position:sticky;     /* KEY CHANGE */
+  bottom:0;
   display:flex;
   padding:8px;
   background:#111;
-  flex:0 0 auto;
 }
  
 input {
@@ -109,7 +102,7 @@ button {
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)" />
+<input id="msg" placeholder="Ask IT..." />
 <button onclick="send()">Send</button>
 </div>
  
@@ -117,9 +110,9 @@ button {
  
 <script>
  
-const chat = document.getElementById("chat");
-const msgInput = document.getElementById("msg");
-const session = Date.now();
+const chat=document.getElementById("chat");
+const msgInput=document.getElementById("msg");
+const session=Date.now();
  
 function add(text,type){
   const d=document.createElement("div");
@@ -127,15 +120,12 @@ function add(text,type){
   d.innerHTML = type==="bot" ? marked.parse(text) : text;
   chat.appendChild(d);
  
-  /* FIX SCROLL POSITION */
-  setTimeout(() => {
-    chat.scrollTop = chat.scrollHeight;
-  }, 50);
+  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
 }
  
 function send(){
-  const t = msgInput.value.trim();
-  if(!t) return;
+  const t=msgInput.value.trim();
+  if(!t)return;
  
   add(t,"user");
  
@@ -162,7 +152,7 @@ function send(){
   msgInput.value="";
 }
  
-msgInput.addEventListener("keydown", e=>{
+msgInput.addEventListener("keydown",e=>{
   if(e.key==="Enter"){
     e.preventDefault();
     send();
