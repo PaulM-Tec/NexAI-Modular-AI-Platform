@@ -124,7 +124,7 @@ function send(){
   .then(r=>r.json())
   .then(d=>{
     thinking.remove();
-    add(d.response,"bot");
+    add(d.text,"bot");
   });
  
   msg.value="";
