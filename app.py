@@ -1,4 +1,5 @@
 import os
+import requests   # ADDED
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -18,19 +19,34 @@ CORS(app)
 sessions = {}
  
 # -------------------------
-# VEHICLE MODULE (FIXED)
+# SLACK FUNCTION (NEW)
+# -------------------------
+def send_to_slack(message):
+    webhook = os.getenv("SLACK_WEBHOOK_URL")
+ 
+    if not webhook:
+        print("Slack webhook not set")
+        return
+ 
+    try:
+        requests.post(webhook, json={
+            "text": message
+        })
+    except Exception as e:
+        print("Slack error:", e)
+ 
+ 
+# -------------------------
+# VEHICLE MODULE (UNCHANGED)
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # START BOOKING FLOW
     if "book" in text or "service" in text:
- 
         current = datetime.now()
         days = []
  
-        # ONLY WEEKDAYS (Mon–Fri)
         while len(days) < 5:
             current += timedelta(days=1)
             if current.weekday() < 5:
@@ -45,13 +61,10 @@ def vehicle_ai(msg, session):
             )
         }
  
-    # DAY SELECTION
     if session.get("state") == "day" and msg.isdigit():
- 
         idx = int(msg) - 1
  
         if 0 <= idx < len(session["days"]):
- 
             day = session["days"][idx]
             session["selected_day"] = day
  
@@ -65,19 +78,15 @@ def vehicle_ai(msg, session):
                 )
             }
  
-    # TIME SELECTION
     if session.get("state") == "time" and msg.isdigit():
- 
         idx = int(msg) - 1
  
         if 0 <= idx < len(session["times"]):
- 
             time = session["times"][idx]
             day = session.get("selected_day", "")
  
             session.clear()
  
-            # FINAL PROFESSIONAL CONFIRMATION
             return {
                 "text": (
                     "Booking Confirmed\n\n"
@@ -94,7 +103,6 @@ def vehicle_ai(msg, session):
                 }
             }
  
-    # NORMAL VEHICLE GPT RESPONSE
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -117,7 +125,7 @@ def vehicle_ai(msg, session):
  
  
 # -------------------------
-# IT MODULE (UNCHANGED)
+# IT MODULE (UPDATED WITH SLACK)
 # -------------------------
 def it_ai(msg):
  
@@ -129,24 +137,20 @@ def it_ai(msg):
                 "content":
                 (
                     "Enterprise IT Admin Assistant.\n\n"
- 
                     "Context:\n"
                     "- Global Admin\n"
                     "- Exchange, Entra, Azure\n\n"
- 
                     "Rules:\n"
                     "- Keep answers SHORT\n"
                     "- Provide steps clearly\n"
                     "- Allow GUI and PowerShell\n"
                     "- If PowerShell used → include connect step first\n\n"
- 
                     "FORMAT:\n"
                     "Title\n"
                     "Steps:\n"
                     "- step\n"
                     "- step\n"
                     "Command (if needed)\n\n"
- 
                     "No long explanations."
                 )
             },
@@ -155,24 +159,34 @@ def it_ai(msg):
         max_tokens=140
     )
  
+    reply = response.choices[0].message.content
+ 
+    # SEND TO SLACK
+    send_to_slack(f"""
+🖥️ NexAI IT Alert
+ 
+Query:
+{msg}
+ 
+Response:
+{reply}
+""")
+ 
     return {
-        "text": response.choices[0].message.content
+        "text": reply
     }
  
  
 # -------------------------
 # ROUTES
 # -------------------------
- 
 @app.get("/vehicle")
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
  
- 
 @app.get("/it")
 def it_ui():
     return send_from_directory(".", "index_it.html")
- 
  
 @app.post("/chat")
 def chat():
