@@ -1,10 +1,14 @@
 import os
-import requests   # ADDED
+import requests
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime, timedelta
+ 
+# GOOGLE CALENDAR IMPORTS
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
  
 # -------------------------
 # ENV
@@ -15,11 +19,10 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 app = Flask(__name__)
 CORS(app)
  
-# Session storage for booking flow
 sessions = {}
  
 # -------------------------
-# SLACK FUNCTION (NEW)
+# SLACK FUNCTION
 # -------------------------
 def send_to_slack(message):
     webhook = os.getenv("SLACK_WEBHOOK_URL")
@@ -29,15 +32,49 @@ def send_to_slack(message):
         return
  
     try:
-        requests.post(webhook, json={
-            "text": message
-        })
+        requests.post(webhook, json={"text": message})
     except Exception as e:
         print("Slack error:", e)
  
+# -------------------------
+# GOOGLE CALENDAR FUNCTION
+# -------------------------
+def create_calendar_event(day, time):
+    try:
+        SCOPES = ['https://www.googleapis.com/auth/calendar']
+ 
+        creds = service_account.Credentials.from_service_account_file(
+            'service_account.json',
+            scopes=SCOPES
+        )
+ 
+        service = build('calendar', 'v3', credentials=creds)
+ 
+        # TEMP STATIC EVENT (we will improve later)
+        event = {
+            'summary': 'Vehicle Service Booking',
+            'description': f'Booking via NexAI\nDay: {day}\nTime: {time}',
+            'start': {
+                'dateTime': '2026-06-10T10:00:00',
+                'timeZone': 'Africa/Johannesburg',
+            },
+            'end': {
+                'dateTime': '2026-06-10T11:00:00',
+                'timeZone': 'Africa/Johannesburg',
+            }
+        }
+ 
+        service.events().insert(
+            calendarId='primary',
+            body=event
+        ).execute()
+ 
+    except Exception as e:
+        print("Calendar error:", e)
+ 
  
 # -------------------------
-# VEHICLE MODULE (UNCHANGED)
+# VEHICLE MODULE
 # -------------------------
 def vehicle_ai(msg, session):
  
@@ -62,9 +99,11 @@ def vehicle_ai(msg, session):
         }
  
     if session.get("state") == "day" and msg.isdigit():
+ 
         idx = int(msg) - 1
  
         if 0 <= idx < len(session["days"]):
+ 
             day = session["days"][idx]
             session["selected_day"] = day
  
@@ -79,11 +118,16 @@ def vehicle_ai(msg, session):
             }
  
     if session.get("state") == "time" and msg.isdigit():
+ 
         idx = int(msg) - 1
  
         if 0 <= idx < len(session["times"]):
+ 
             time = session["times"][idx]
             day = session.get("selected_day", "")
+ 
+            # CREATE CALENDAR EVENT HERE
+            create_calendar_event(day, time)
  
             session.clear()
  
@@ -123,9 +167,8 @@ def vehicle_ai(msg, session):
         "text": response.choices[0].message.content
     }
  
- 
 # -------------------------
-# IT MODULE (UPDATED WITH SLACK)
+# IT MODULE (SLACK)
 # -------------------------
 def it_ai(msg):
  
@@ -134,8 +177,7 @@ def it_ai(msg):
         messages=[
             {
                 "role": "system",
-                "content":
-                (
+                "content": (
                     "Enterprise IT Admin Assistant.\n\n"
                     "Context:\n"
                     "- Global Admin\n"
@@ -161,7 +203,6 @@ def it_ai(msg):
  
     reply = response.choices[0].message.content
  
-    # SEND TO SLACK
     send_to_slack(f"""
 🖥️ NexAI IT Alert
  
@@ -175,7 +216,6 @@ Response:
     return {
         "text": reply
     }
- 
  
 # -------------------------
 # ROUTES
@@ -208,7 +248,6 @@ def chat():
         result = it_ai(msg)
  
     return jsonify(result)
- 
  
 # -------------------------
 # RUN
