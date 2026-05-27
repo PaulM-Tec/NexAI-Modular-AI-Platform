@@ -3,29 +3,30 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-https://cdn.jsdelivr.net/npm/marked/marked.min.js
+<!-- CORRECT SCRIPT (FIXES TOP TEXT ISSUE) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
 body {
   margin:0;
-  overflow:hidden; /* CRITICAL FIX */
   background:#1e1e2f;
   font-family:Arial;
-  display:flex;
-  justify-content:center;
 }
  
+/* CENTERED CONTAINER */
 .app {
   width:95%;
   max-width:420px;
   height:75vh;
-  margin-top:20px;
+  margin:20px auto;
   display:flex;
   flex-direction:column;
   background:#252542;
   border-radius:12px;
+  overflow:hidden;  /* KEY FIX */
 }
  
+/* HEADER (ALWAYS VISIBLE) */
 .header {
   padding:12px;
   text-align:center;
@@ -33,6 +34,7 @@ body {
   color:#00d4ff;
 }
  
+/* ONLY CHAT SCROLLS */
 .chat {
   flex:1;
   overflow-y:auto;
@@ -41,6 +43,7 @@ body {
   flex-direction:column;
 }
  
+/* MESSAGES */
 .msg {
   max-width:70%;
   padding:10px;
@@ -60,12 +63,14 @@ body {
   color:white;
 }
  
+/* COMMAND BLOCK */
 .msg pre {
   background:#111;
   padding:6px;
   border-radius:5px;
 }
  
+/* INPUT */
 .input {
   display:flex;
   padding:8px;
@@ -98,32 +103,33 @@ button {
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)">
+<input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)" />
 <button onclick="send()">Send</button>
 </div>
  
 </div>
  
 <script>
-const chat=document.getElementById("chat");
-const msgInput=document.getElementById("msg");
-const session=Date.now();
+ 
+const chat = document.getElementById("chat");
+const msgInput = document.getElementById("msg");
+const session = Date.now();
  
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
-  d.innerHTML=type==="bot"?marked.parse(text):text;
+  d.innerHTML = type==="bot" ? marked.parse(text) : text;
   chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
+  chat.scrollTop = chat.scrollHeight;
 }
  
 function send(){
-  let t=msgInput.value.trim();
-  if(!t)return;
+  const t = msgInput.value.trim();
+  if(!t) return;
  
   add(t,"user");
  
-  let thinking=document.createElement("div");
+  const thinking=document.createElement("div");
   thinking.className="msg bot";
   thinking.innerText="Thinking...";
   chat.appendChild(thinking);
@@ -146,12 +152,13 @@ function send(){
   msgInput.value="";
 }
  
-msgInput.addEventListener("keydown",e=>{
+msgInput.addEventListener("keydown", e=>{
   if(e.key==="Enter"){
     e.preventDefault();
     send();
   }
 });
+ 
 </script>
  
 </body>
