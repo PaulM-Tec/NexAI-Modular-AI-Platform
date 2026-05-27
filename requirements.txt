@@ -4,3 +4,5 @@ sqlalchemy
 python-dotenv
 openai
 requests
+google-api-python-client
+google-auth
