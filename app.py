@@ -14,55 +14,67 @@ CORS(app)
 sessions = {}
  
 # -------------------------
-# VEHICLE MODULE (UNCHANGED WORKING FLOW)
+# ✅ VEHICLE MODULE (RESTORED STYLE)
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # BOOKING FLOW
     if "book" in text or "service" in text:
-        days = []
+        from datetime import datetime, timedelta
+ 
         current = datetime.now()
+        days = []
  
         while len(days) < 5:
             current += timedelta(days=1)
-            if current.weekday() < 6:
-                days.append(current.strftime("%A"))
+            days.append(current.strftime("%A"))
  
         session["days"] = days
         session["state"] = "day"
  
         return "Select a service day:\n" + "\n".join(
-            [f"{i+1}. {d}" for i,d in enumerate(days)]
+            f"{i+1}. {d}" for i,d in enumerate(days)
         )
  
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg)-1
         if 0 <= idx < len(session["days"]):
+ 
             day = session["days"][idx]
             session["selected_day"] = day
+ 
             times = ["08:00","10:00","13:00","15:00"]
             session["times"] = times
             session["state"] = "time"
  
-            return f"{day} selected.\nChoose a time:\n" + "\n".join(
+            return f"{day} selected\nChoose time:\n" + "\n".join(
                 f"{i+1}. {t}" for i,t in enumerate(times)
             )
  
     if session.get("state") == "time" and msg.isdigit():
         idx = int(msg)-1
         if 0 <= idx < len(session["times"]):
+ 
             time = session["times"][idx]
             day = session.get("selected_day","")
             session.clear()
-            return f"Booking Confirmed\n{day} at {time}"
  
-    # GPT fallback
+            return f"✅ Booking Confirmed\n{day} at {time}"
+ 
+    # ✅ GPT restored nicely structured
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role":"system","content":"Automotive assistant. Short answers only."},
+            {
+                "role":"system",
+                "content":
+                (
+                    "Automotive assistant.\n"
+                    "Provide structured, short answers.\n"
+                    "Use bullet points when needed."
+                )
+            },
             {"role":"user","content":msg}
         ],
         max_tokens=120
@@ -71,6 +83,49 @@ def vehicle_ai(msg, session):
     return response.choices[0].message.content
  
  
+# -------------------------
+# ✅ IT MODULE (FIXED BEHAVIOUR)
+# -------------------------
+def it_ai(msg):
+ 
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content":
+                (
+                    "You are an Enterprise IT Admin Assistant.\n\n"
+ 
+                    "User is a Global Admin.\n"
+                    "Respond using admin tools like:\n"
+                    "- Exchange Admin Center\n"
+                    "- Entra portal\n"
+                    "- PowerShell\n\n"
+ 
+                    "Rules:\n"
+                    "- Keep answers short\n"
+                    "- Provide steps clearly\n"
+                    "- Include PowerShell only when relevant\n"
+                    "- DO NOT refuse to answer GUI questions\n\n"
+ 
+                    "FORMAT:\n"
+                    "Title\n"
+                    "Steps:\n"
+                    "- step\n"
+                    "- step\n"
+                    "Optional: Command\n\n"
+ 
+                    "Keep responses clean and readable."
+                )
+            },
+            {"role": "user", "content": msg}
+        ],
+        max_tokens=140
+    )
+ 
+    return response.choices[0].message.content
+
 # -------------------------
 # IT MODULE (STRICT CONTROL + CORRECT FLOW)
 # -------------------------
