@@ -41,6 +41,8 @@ def send_to_slack(message):
 # -------------------------
 def create_calendar_event(day, time):
     try:
+        print("FUNCTION CALLED:", day, time)
+ 
         SCOPES = ['https://www.googleapis.com/auth/calendar']
  
         creds = service_account.Credentials.from_service_account_file(
@@ -50,7 +52,7 @@ def create_calendar_event(day, time):
  
         service = build('calendar', 'v3', credentials=creds)
  
-        # STEP 1: calculate correct date from selected day
+        # Calculate correct next date
         today = datetime.now()
  
         days_map = {
@@ -65,11 +67,13 @@ def create_calendar_event(day, time):
         days_ahead = (target_day - today.weekday()) % 7
  
         if days_ahead == 0:
-            days_ahead = 7  # always next occurrence
+            days_ahead = 7
  
         booking_date = today + timedelta(days=days_ahead)
  
-        # STEP 2: build correct datetime
+        print("CALCULATED DATE:", booking_date)
+ 
+        # Build datetime
         start_datetime = datetime.strptime(
             f"{booking_date.strftime('%Y-%m-%d')} {time}",
             "%Y-%m-%d %H:%M"
@@ -79,7 +83,7 @@ def create_calendar_event(day, time):
  
         event = {
             'summary': 'Vehicle Service Booking',
-            'description': f'Booking via NexAI\nDay: {day}\nTime: {time}',
+            'description': f'NexAI Booking\nDay: {day}\nTime: {time}',
             'start': {
                 'dateTime': start_datetime.isoformat(),
                 'timeZone': 'Africa/Johannesburg',
@@ -90,17 +94,22 @@ def create_calendar_event(day, time):
             }
         }
  
+        print("SENDING EVENT TO CALENDAR...")
+ 
         service.events().insert(
             calendarId='170013714c22b8ae82dd253ea8480175e8ad8708ec57997dddd64a411be8ad41@group.calendar.google.com',
             body=event
         ).execute()
  
-        print("Event created:", booking_date, time)
+        print("EVENT CREATED SUCCESSFULLY")
  
         return booking_date
  
     except Exception as e:
-        print("Calendar error:", e)
+        import traceback
+        print("CALENDAR ERROR:", e)
+        traceback.print_exc()
+ 
         return datetime.now()
  
  
