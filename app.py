@@ -5,31 +5,26 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime, timedelta
  
-# -------------------------
-# ENV
-# -------------------------
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 app = Flask(__name__)
 CORS(app)
  
-# Session storage (for booking flow)
 sessions = {}
  
 # -------------------------
-# VEHICLE MODULE (FULL FLOW)
+# VEHICLE MODULE (UNCHANGED WORKING FLOW)
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # START BOOKING
+    # BOOKING FLOW
     if "book" in text or "service" in text:
         days = []
         current = datetime.now()
  
-        # next 5 working days
         while len(days) < 5:
             current += timedelta(days=1)
             if current.weekday() < 6:
@@ -39,65 +34,45 @@ def vehicle_ai(msg, session):
         session["state"] = "day"
  
         return "Select a service day:\n" + "\n".join(
-            [f"{i+1}. {d}" for i, d in enumerate(days)]
+            [f"{i+1}. {d}" for i,d in enumerate(days)]
         )
  
-    # DAY SELECTION
     if session.get("state") == "day" and msg.isdigit():
-        idx = int(msg) - 1
- 
+        idx = int(msg)-1
         if 0 <= idx < len(session["days"]):
-            selected_day = session["days"][idx]
-            session["selected_day"] = selected_day
- 
-            times = ["08:00", "10:00", "13:00", "15:00"]
+            day = session["days"][idx]
+            session["selected_day"] = day
+            times = ["08:00","10:00","13:00","15:00"]
             session["times"] = times
             session["state"] = "time"
  
-            return f"{selected_day} selected.\n\nChoose a time:\n" + "\n".join(
-                [f"{i+1}. {t}" for i, t in enumerate(times)]
+            return f"{day} selected.\nChoose a time:\n" + "\n".join(
+                f"{i+1}. {t}" for i,t in enumerate(times)
             )
  
-    # TIME SELECTION
     if session.get("state") == "time" and msg.isdigit():
-        idx = int(msg) - 1
- 
+        idx = int(msg)-1
         if 0 <= idx < len(session["times"]):
-            selected_time = session["times"][idx]
-            selected_day = session.get("selected_day", "")
- 
+            time = session["times"][idx]
+            day = session.get("selected_day","")
             session.clear()
+            return f"Booking Confirmed\n{day} at {time}"
  
-            return f"Booking Confirmed\n{selected_day} at {selected_time}"
+    # GPT fallback
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role":"system","content":"Automotive assistant. Short answers only."},
+            {"role":"user","content":msg}
+        ],
+        max_tokens=120
+    )
  
-    # NORMAL VEHICLE GPT
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an automotive assistant.\n"
-                        "Respond concisely.\n"
-                        "Use bullet points when helpful.\n"
-                        "No IT topics."
-                    )
-                },
-                {"role": "user", "content": msg}
-            ],
-            max_tokens=120
-        )
- 
-        return response.choices[0].message.content
- 
-    except Exception as e:
-        print("Vehicle GPT Error:", e)
-        return "Unable to process vehicle query right now."
+    return response.choices[0].message.content
  
  
 # -------------------------
-# IT MODULE (SHORT + ADMIN FOCUSED)
+# IT MODULE (STRICT CONTROL + CORRECT FLOW)
 # -------------------------
 def it_ai(msg):
  
@@ -110,25 +85,27 @@ def it_ai(msg):
                     "content": (
                         "You are NexAI Enterprise IT Assistant.\n\n"
  
-                        "User:\n"
-                        "- Global Admin (Exchange, Entra, M365)\n\n"
+                        "Context:\n"
+                        "- User is Global Admin\n"
+                        "- Works in Exchange Online, Azure, Entra\n\n"
  
-                        "RULES:\n"
-                        "- SHORT answers only\n"
-                        "- NO explanations beyond 1 line\n"
-                        "- NO Outlook or end-user instructions\n"
-                        "- Backend/admin perspective ONLY\n\n"
+                        "Rules:\n"
+                        "- Always include connection step first if PowerShell is used\n"
+                        "- No explanations longer than one line\n"
+                        "- No Outlook or end-user instructions\n\n"
  
-                        "FORMAT:\n"
+                        "STRICT FORMAT:\n"
                         "Title\n"
                         "Steps:\n"
                         "- step\n"
                         "- step\n"
+                        "Command:\n"
+                        "- command\n\n"
  
-                        "Optional:\n"
-                        "PowerShell command\n\n"
+                        "Example:\n"
+                        "Connect first before commands.\n"
  
-                        "Max 6–8 lines."
+                        "Keep output very short."
                     )
                 },
                 {"role": "user", "content": msg}
@@ -139,57 +116,42 @@ def it_ai(msg):
         return response.choices[0].message.content
  
     except Exception as e:
-        print("IT GPT Error:", e)
-        return "Unable to process IT query right now."
+        print("IT ERROR:", e)
+        return "Unable to process IT request."
  
  
 # -------------------------
 # ROUTES
 # -------------------------
-@app.get("/")
-def home():
-    return "NexAI running. Use /vehicle or /it"
- 
- 
 @app.get("/vehicle")
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
- 
  
 @app.get("/it")
 def it_ui():
     return send_from_directory(".", "index_it.html")
  
- 
-# CORE CHAT ROUTE
 @app.post("/chat")
 def chat():
  
     data = request.get_json()
  
-    msg = data.get("message", "").strip()
+    msg = data.get("message", "")
     module = data.get("module", "")
-    session_id = data.get("session_id", "default")
+    sid = data.get("session_id", "default")
  
-    if session_id not in sessions:
-        sessions[session_id] = {}
+    if sid not in sessions:
+        sessions[sid] = {}
  
-    session = sessions[session_id]
+    session = sessions[sid]
  
     if module == "vehicle":
         reply = vehicle_ai(msg, session)
- 
-    elif module == "it":
-        reply = it_ai(msg)
- 
     else:
-        reply = "Invalid module."
+        reply = it_ai(msg)
  
     return jsonify({"response": reply})
  
  
-# -------------------------
-# RUN
-# -------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT",5000)))

@@ -13,6 +13,7 @@ body {
   font-family:Arial;
 }
  
+/* PANEL */
 .app {
   width:95%;
   max-width:420px;
@@ -31,22 +32,26 @@ body {
   color:#00d4ff;
 }
  
+/* CHAT */
 .chat {
   flex:1;
   overflow-y:auto;
   padding:10px;
   display:flex;
   flex-direction:column;
+  padding-bottom:20px; /* stops overlap */
 }
  
+/* MESSAGE */
 .msg {
   max-width:70%;
   padding:10px;
-  margin:5px 0;
+  margin:4px 0;
   border-radius:10px;
   font-size:13px;
-  line-height:1.4;
+  line-height:1.3;
   white-space: pre-line;
+  word-break: break-word;
 }
  
 .user {
@@ -60,6 +65,24 @@ body {
   color:white;
 }
  
+/* REMOVE HUGE GAPS */
+.msg p { margin:2px 0; }
+.msg ul { margin:2px 0; padding-left:15px; }
+.msg li { margin:2px 0; }
+ 
+/* FIX COMMAND BLOCK */
+.msg pre, .msg code {
+  display:block;
+  background:#111;
+  padding:6px;
+  margin:5px 0;
+  border-radius:5px;
+  font-size:12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+ 
+/* INPUT */
 .input {
   display:flex;
   padding:8px;
@@ -115,7 +138,7 @@ function add(text,type){
   }
  
   chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
+  chat.scrollTop = chat.scrollHeight;
 }
  
 function send(){
@@ -151,7 +174,7 @@ function send(){
   msgInput.value="";
 }
  
-msgInput.addEventListener("keydown", function(e){
+msgInput.addEventListener("keydown", e => {
   if(e.key === "Enter"){
     e.preventDefault();
     send();
