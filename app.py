@@ -14,15 +14,13 @@ CORS(app)
 sessions = {}
  
 # -------------------------
-# ✅ VEHICLE MODULE (RESTORED STYLE)
+# VEHICLE MODULE (UNCHANGED BEHAVIOUR)
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
     if "book" in text or "service" in text:
-        from datetime import datetime, timedelta
- 
         current = datetime.now()
         days = []
  
@@ -33,12 +31,14 @@ def vehicle_ai(msg, session):
         session["days"] = days
         session["state"] = "day"
  
-        return "Select a service day:\n" + "\n".join(
-            f"{i+1}. {d}" for i,d in enumerate(days)
-        )
+        return {
+            "text": "Select a service day:\n" + "\n".join(
+                f"{i+1}. {d}" for i,d in enumerate(days)
+            )
+        }
  
     if session.get("state") == "day" and msg.isdigit():
-        idx = int(msg)-1
+        idx = int(msg) - 1
         if 0 <= idx < len(session["days"]):
  
             day = session["days"][idx]
@@ -48,21 +48,30 @@ def vehicle_ai(msg, session):
             session["times"] = times
             session["state"] = "time"
  
-            return f"{day} selected\nChoose time:\n" + "\n".join(
-                f"{i+1}. {t}" for i,t in enumerate(times)
-            )
+            return {
+                "text": f"{day} selected\nChoose time:\n" + "\n".join(
+                    f"{i+1}. {t}" for i,t in enumerate(times)
+                )
+            }
  
     if session.get("state") == "time" and msg.isdigit():
-        idx = int(msg)-1
+        idx = int(msg) - 1
         if 0 <= idx < len(session["times"]):
  
             time = session["times"][idx]
             day = session.get("selected_day","")
             session.clear()
  
-            return f"✅ Booking Confirmed\n{day} at {time}"
+            return {
+                "text": f"Booking Confirmed\n{day} at {time}",
+                "type": "booking",
+                "data": {
+                    "day": day,
+                    "time": time
+                }
+            }
  
-    # ✅ GPT restored nicely structured
+    # GPT fallback
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -71,8 +80,8 @@ def vehicle_ai(msg, session):
                 "content":
                 (
                     "Automotive assistant.\n"
-                    "Provide structured, short answers.\n"
-                    "Use bullet points when needed."
+                    "Give clear structured answers.\n"
+                    "Use bullets where helpful."
                 )
             },
             {"role":"user","content":msg}
@@ -80,11 +89,11 @@ def vehicle_ai(msg, session):
         max_tokens=120
     )
  
-    return response.choices[0].message.content
+    return {"text": response.choices[0].message.content}
  
  
 # -------------------------
-# ✅ IT MODULE (FIXED BEHAVIOUR)
+# IT MODULE (FIXED QUALITY)
 # -------------------------
 def it_ai(msg):
  
@@ -92,87 +101,37 @@ def it_ai(msg):
         model="gpt-4o-mini",
         messages=[
             {
-                "role": "system",
+                "role":"system",
                 "content":
                 (
-                    "You are an Enterprise IT Admin Assistant.\n\n"
+                    "Enterprise IT Admin Assistant.\n\n"
  
-                    "User is a Global Admin.\n"
-                    "Respond using admin tools like:\n"
-                    "- Exchange Admin Center\n"
-                    "- Entra portal\n"
-                    "- PowerShell\n\n"
+                    "Context:\n"
+                    "- Global Admin\n"
+                    "- Exchange, Entra, Azure\n\n"
  
                     "Rules:\n"
-                    "- Keep answers short\n"
+                    "- Keep answers SHORT\n"
                     "- Provide steps clearly\n"
-                    "- Include PowerShell only when relevant\n"
-                    "- DO NOT refuse to answer GUI questions\n\n"
+                    "- Allow GUI and PowerShell\n"
+                    "- If PowerShell used → include connect step first\n\n"
  
                     "FORMAT:\n"
                     "Title\n"
                     "Steps:\n"
                     "- step\n"
                     "- step\n"
-                    "Optional: Command\n\n"
+                    "Command (if needed)\n\n"
  
-                    "Keep responses clean and readable."
+                    "No long explanations."
                 )
             },
-            {"role": "user", "content": msg}
+            {"role":"user","content":msg}
         ],
         max_tokens=140
     )
  
-    return response.choices[0].message.content
-
-# -------------------------
-# IT MODULE (STRICT CONTROL + CORRECT FLOW)
-# -------------------------
-def it_ai(msg):
- 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are NexAI Enterprise IT Assistant.\n\n"
- 
-                        "Context:\n"
-                        "- User is Global Admin\n"
-                        "- Works in Exchange Online, Azure, Entra\n\n"
- 
-                        "Rules:\n"
-                        "- Always include connection step first if PowerShell is used\n"
-                        "- No explanations longer than one line\n"
-                        "- No Outlook or end-user instructions\n\n"
- 
-                        "STRICT FORMAT:\n"
-                        "Title\n"
-                        "Steps:\n"
-                        "- step\n"
-                        "- step\n"
-                        "Command:\n"
-                        "- command\n\n"
- 
-                        "Example:\n"
-                        "Connect first before commands.\n"
- 
-                        "Keep output very short."
-                    )
-                },
-                {"role": "user", "content": msg}
-            ],
-            max_tokens=120
-        )
- 
-        return response.choices[0].message.content
- 
-    except Exception as e:
-        print("IT ERROR:", e)
-        return "Unable to process IT request."
+    return {"text": response.choices[0].message.content}
  
  
 # -------------------------
@@ -201,11 +160,11 @@ def chat():
     session = sessions[sid]
  
     if module == "vehicle":
-        reply = vehicle_ai(msg, session)
+        result = vehicle_ai(msg, session)
     else:
-        reply = it_ai(msg)
+        result = it_ai(msg)
  
-    return jsonify({"response": reply})
+    return jsonify(result)
  
  
 if __name__ == "__main__":

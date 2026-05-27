@@ -3,7 +3,6 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-<!-- CORRECT SCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
@@ -13,7 +12,6 @@ body {
   font-family:Arial;
 }
  
-/* PANEL */
 .app {
   width:95%;
   max-width:420px;
@@ -32,17 +30,15 @@ body {
   color:#00d4ff;
 }
  
-/* CHAT */
 .chat {
   flex:1;
   overflow-y:auto;
   padding:10px;
   display:flex;
   flex-direction:column;
-  padding-bottom:20px; /* stops overlap */
 }
  
-/* MESSAGE */
+/* FIXED SPACING */
 .msg {
   max-width:70%;
   padding:8px 10px;
@@ -50,32 +46,8 @@ body {
   border-radius:10px;
   font-size:13px;
   line-height:1.25;
-  white-space: normal;
-}
- 
-/* REMOVE ALL EXTRA GAPS */
-.msg p {
-  margin:2px 0;
-}
- 
-.msg ul {
-  margin:2px 0;
-  padding-left:14px;
-}
- 
-.msg li {
-  margin:2px 0;
-}
- 
-/* FIX COMMAND BLOCK */
-.msg pre, .msg code {
-  display:block;
-  background:#111;
-  padding:5px;
-  margin:4px 0;
-  border-radius:5px;
-  font-size:12px;
-  white-space: pre-wrap;
+  white-space:normal;
+  word-break:break-word;
 }
  
 .user {
@@ -89,21 +61,20 @@ body {
   color:white;
 }
  
-/* REMOVE HUGE GAPS */
+/* REMOVE GAPS */
 .msg p { margin:2px 0; }
-.msg ul { margin:2px 0; padding-left:15px; }
+.msg ul { margin:2px 0; padding-left:14px; }
 .msg li { margin:2px 0; }
  
-/* FIX COMMAND BLOCK */
+/* COMMAND FIX */
 .msg pre, .msg code {
   display:block;
   background:#111;
   padding:6px;
-  margin:5px 0;
+  margin:4px 0;
   border-radius:5px;
   font-size:12px;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space:pre-wrap;
 }
  
 /* INPUT */
@@ -133,16 +104,13 @@ button {
 <body>
  
 <div class="app">
- 
 <div class="header">🖥️ NexAI IT</div>
- 
 <div id="chat" class="chat"></div>
  
 <div class="input">
 <input id="msg" placeholder="Ask IT (Exchange, Azure, Entra...)" />
 <button onclick="send()">Send</button>
 </div>
- 
 </div>
  
 <script>
@@ -154,15 +122,9 @@ const session = Date.now();
 function add(text,type){
   const d=document.createElement("div");
   d.className="msg "+type;
- 
-  if(type==="bot"){
-    d.innerHTML = marked.parse(text);
-  } else {
-    d.textContent = text;
-  }
- 
+  d.innerHTML = type==="bot" ? marked.parse(text) : text;
   chat.appendChild(d);
-  chat.scrollTop = chat.scrollHeight;
+  chat.scrollTop=chat.scrollHeight;
 }
  
 function send(){
@@ -188,18 +150,14 @@ function send(){
   .then(r=>r.json())
   .then(d=>{
     thinking.remove();
-    add(d.response,"bot");
-  })
-  .catch(()=>{
-    thinking.remove();
-    add("Error contacting server","bot");
+    add(d.text,"bot");  // uses structured output safely
   });
  
   msgInput.value="";
 }
  
-msgInput.addEventListener("keydown", e => {
-  if(e.key === "Enter"){
+msgInput.addEventListener("keydown", e=>{
+  if(e.key==="Enter"){
     e.preventDefault();
     send();
   }
