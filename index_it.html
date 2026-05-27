@@ -3,7 +3,7 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  
-<!-- CORRECT SCRIPT (FIXES TOP TEXT ISSUE) -->
+<!-- FIXED SCRIPT TAG -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
@@ -11,37 +11,37 @@ body {
   margin:0;
   background:#1e1e2f;
   font-family:Arial;
- 
-  height:100vh;
-  overflow:hidden;
 }
  
-/* CENTERED CONTAINER */
+/* APP (KEEP AS YOU HAD — FIXED CONTAINER) */
 .app {
-  width:95%;
+  position:fixed;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:100%;
   max-width:420px;
-  height:75vh;
-  margin:20px auto;
+  height:100%;
   display:flex;
   flex-direction:column;
   background:#252542;
-  border-radius:12px;
-  overflow:hidden;  /* KEY FIX */
 }
  
-/* HEADER (ALWAYS VISIBLE) */
+/* HEADER */
 .header {
   padding:12px;
   text-align:center;
   background:#111;
   color:#00d4ff;
+  flex:0 0 auto;
 }
  
-/* ONLY CHAT SCROLLS */
+/* CHAT (CRITICAL FIX HERE) */
 .chat {
   flex:1;
   overflow-y:auto;
   padding:10px;
+  padding-bottom:80px;   /* FIX OVERLAP */
   display:flex;
   flex-direction:column;
 }
@@ -71,6 +71,8 @@ body {
   background:#111;
   padding:6px;
   border-radius:5px;
+  font-size:12px;
+  white-space:pre-wrap;
 }
  
 /* INPUT */
@@ -78,6 +80,7 @@ body {
   display:flex;
   padding:8px;
   background:#111;
+  flex:0 0 auto;
 }
  
 input {
@@ -123,7 +126,11 @@ function add(text,type){
   d.className="msg "+type;
   d.innerHTML = type==="bot" ? marked.parse(text) : text;
   chat.appendChild(d);
-  chat.scrollTop = chat.scrollHeight;
+ 
+  /* FIX SCROLL POSITION */
+  setTimeout(() => {
+    chat.scrollTop = chat.scrollHeight;
+  }, 50);
 }
  
 function send(){
@@ -162,13 +169,6 @@ msgInput.addEventListener("keydown", e=>{
   }
 });
  
-/* LOCK PAGE SCROLL (REAL FIX) */
-document.body.addEventListener("touchmove", function (e) {
-    if (!e.target.closest(".chat")) {
-        e.preventDefault();
-    }
-}, { passive: false });
-
 </script>
  
 </body>
