@@ -29,7 +29,6 @@ def send_to_slack(message):
     if not webhook:
         print("Slack webhook not set")
         return
- 
     try:
         requests.post(webhook, json={"text": message})
     except Exception as e:
@@ -37,7 +36,7 @@ def send_to_slack(message):
  
  
 # -------------------------
-# GOOGLE CALENDAR FUNCTION (FIXED FULLY)
+# GOOGLE CALENDAR FUNCTION (FINAL DEBUG VERSION)
 # -------------------------
 def create_calendar_event(day, time):
     try:
@@ -63,9 +62,13 @@ def create_calendar_event(day, time):
             "friday": 4
         }
  
-        target_day = days_map[day.lower()]
-        days_ahead = (target_day - today.weekday()) % 7
+        target_day = days_map.get(day.lower())
  
+        if target_day is None:
+            print("Invalid day received:", day)
+            return datetime.now()
+ 
+        days_ahead = (target_day - today.weekday()) % 7
         if days_ahead == 0:
             days_ahead = 7
  
@@ -109,12 +112,11 @@ def create_calendar_event(day, time):
         import traceback
         print("CALENDAR ERROR:", e)
         traceback.print_exc()
- 
         return datetime.now()
  
  
 # -------------------------
-# VEHICLE MODULE
+# VEHICLE MODULE (FORCED EXECUTION FIX)
 # -------------------------
 def vehicle_ai(msg, session):
  
@@ -138,11 +140,12 @@ def vehicle_ai(msg, session):
             )
         }
  
+    # DAY SELECTION
     if session.get("state") == "day" and msg.isdigit():
  
         idx = int(msg) - 1
  
-        if 0 <= idx < len(session["days"]):
+        if 0 <= idx < len(session.get("days", [])):
  
             day = session["days"][idx]
             session["selected_day"] = day
@@ -157,16 +160,18 @@ def vehicle_ai(msg, session):
                 )
             }
  
-    if session.get("state") == "time" and msg.isdigit():
+    # FORCE EXECUTION FOR TIME (IMPORTANT FIX)
+    if msg.isdigit():
  
         idx = int(msg) - 1
  
-        if 0 <= idx < len(session["times"]):
+        if "times" in session and 0 <= idx < len(session["times"]):
  
             time = session["times"][idx]
             day = session.get("selected_day", "")
  
-            # CREATE CALENDAR EVENT + GET DATE
+            print("ABOUT TO CREATE EVENT:", day, time)
+ 
             booking_date = create_calendar_event(day, time)
  
             session.clear()
@@ -187,6 +192,7 @@ def vehicle_ai(msg, session):
                 }
             }
  
+    # FALLBACK AI
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -194,8 +200,7 @@ def vehicle_ai(msg, session):
                 "role": "system",
                 "content": (
                     "Automotive assistant.\n"
-                    "Provide clear structured answers.\n"
-                    "Use bullet points when helpful."
+                    "Provide structured answers."
                 )
             },
             {"role": "user", "content": msg}
@@ -218,24 +223,7 @@ def it_ai(msg):
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "Enterprise IT Admin Assistant.\n\n"
-                    "Context:\n"
-                    "- Global Admin\n"
-                    "- Exchange, Entra, Azure\n\n"
-                    "Rules:\n"
-                    "- Keep answers SHORT\n"
-                    "- Provide steps clearly\n"
-                    "- Allow GUI and PowerShell\n"
-                    "- If PowerShell used → include connect step first\n\n"
-                    "FORMAT:\n"
-                    "Title\n"
-                    "Steps:\n"
-                    "- step\n"
-                    "- step\n"
-                    "Command (if needed)\n\n"
-                    "No long explanations."
-                )
+                "content": "Enterprise IT Admin Assistant."
             },
             {"role": "user", "content": msg}
         ],
@@ -254,9 +242,7 @@ Response:
 {reply}
 """)
  
-    return {
-        "text": reply
-    }
+    return {"text": reply}
  
  
 # -------------------------
@@ -274,6 +260,7 @@ def it_ui():
 def chat():
  
     data = request.get_json()
+ 
     msg = data.get("message", "")
     module = data.get("module", "")
     session_id = data.get("session_id", "default")
