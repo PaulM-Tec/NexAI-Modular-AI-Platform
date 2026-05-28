@@ -1,5 +1,7 @@
 import os
 import requests
+import smtplib
+from email.mime.text import MIMEText
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -16,10 +18,49 @@ from googleapiclient.discovery import build
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASS = os.getenv("EMAIL_PASS")
+ 
 app = Flask(__name__)
 CORS(app)
  
 sessions = {}
+ 
+# -------------------------
+# EMAIL FUNCTION NEW
+# -------------------------
+def send_email(to_email, name, vehicle, date, time):
+    try:
+        subject = "Vehicle Service Booking Confirmed"
+ 
+        body = f"""
+Hello {name},
+ 
+Your booking has been confirmed
+ 
+Vehicle: {vehicle}
+Date: {date}
+Time: {time}
+ 
+Thank you for using NexAI
+"""
+ 
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = EMAIL_USER
+        msg["To"] = to_email
+ 
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.send_message(msg)
+        server.quit()
+ 
+        print("Email sent to:", to_email)
+ 
+    except Exception as e:
+        print("Email error:", e)
+ 
  
 # -------------------------
 # SLACK FUNCTION
@@ -83,7 +124,6 @@ def create_calendar_event(day, time, details):
  
         end_datetime = start_datetime + timedelta(hours=1)
  
-        # FULL DETAILS NOW INCLUDED
         event = {
             'summary': 'Vehicle Service Booking',
             'description': (
@@ -123,7 +163,7 @@ def create_calendar_event(day, time, details):
  
  
 # -------------------------
-# VEHICLE MODULE (UPDATED FLOW)
+# VEHICLE MODULE
 # -------------------------
 def vehicle_ai(msg, session):
  
@@ -153,7 +193,6 @@ def vehicle_ai(msg, session):
         idx = int(msg) - 1
  
         if 0 <= idx < len(session.get("days", [])):
- 
             day = session["days"][idx]
             session["selected_day"] = day
  
@@ -169,36 +208,29 @@ def vehicle_ai(msg, session):
  
     # TIME
     if session.get("state") == "time" and msg.isdigit():
- 
         idx = int(msg) - 1
  
         if 0 <= idx < len(session.get("times", [])):
             session["selected_time"] = session["times"][idx]
             session["state"] = "name"
  
-            return {
-                "text": "Enter your name:"
-            }
+            return {"text": "Enter your name:"}
  
     # NAME
     if session.get("state") == "name":
         session["name"] = msg
         session["state"] = "vehicle"
  
-        return {
-            "text": "Enter vehicle type (e.g. Toyota Corolla):"
-        }
+        return {"text": "Enter vehicle type (e.g. Toyota Corolla):"}
  
     # VEHICLE
     if session.get("state") == "vehicle":
         session["vehicle"] = msg
         session["state"] = "contact"
  
-        return {
-            "text": "Enter contact number or email:"
-        }
+        return {"text": "Enter contact email:"}
  
-    # CONTACT + FINAL BOOKING
+    # CONTACT + FINAL
     if session.get("state") == "contact":
  
         session["contact"] = msg
@@ -214,6 +246,15 @@ def vehicle_ai(msg, session):
         vehicle = session["vehicle"]
         contact = session["contact"]
  
+        # SEND EMAIL HERE
+        send_email(
+            to_email=contact,
+            name=name,
+            vehicle=vehicle,
+            date=booking_date.strftime('%d/%m/%Y'),
+            time=time
+        )
+ 
         session.clear()
  
         return {
@@ -225,16 +266,8 @@ def vehicle_ai(msg, session):
                 f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
                 f"Day: {day}\n"
                 f"Time: {time}\n"
-                "Service Type: General Service"
-            ),
-            "type": "booking",
-            "data": {
-                "day": day,
-                "time": time,
-                "name": name,
-                "vehicle": vehicle,
-                "contact": contact
-            }
+                "Confirmation email sent"
+            )
         }
  
     # FALLBACK AI
@@ -284,9 +317,11 @@ Response:
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
  
+ 
 @app.get("/it")
 def it_ui():
     return send_from_directory(".", "index_it.html")
+ 
  
 @app.post("/chat")
 def chat():
