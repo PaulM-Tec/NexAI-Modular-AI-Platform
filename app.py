@@ -29,7 +29,7 @@ CORS(app)
 sessions = {}
  
 # -------------------------
-# DATABASE INIT NEW
+# DATABASE INIT
 # -------------------------
 def init_db():
     conn = sqlite3.connect("bookings.db")
@@ -54,16 +54,14 @@ def init_db():
  
 init_db()
  
- 
 # -------------------------
-# BOOKING ID GENERATOR NEW
+# BOOKING ID
 # -------------------------
 def generate_booking_id():
     return f"NX-{datetime.now().strftime('%Y%m%d%H%M%S')}"
  
- 
 # -------------------------
-# SAVE BOOKING NEW
+# SAVE BOOKING (CRITICAL)
 # -------------------------
 def save_booking(data):
  
@@ -90,9 +88,8 @@ def save_booking(data):
  
     print("Booking saved:", data["booking_id"])
  
- 
 # -------------------------
-# SENDGRID EMAIL FUNCTION
+# EMAIL (SENDGRID)
 # -------------------------
 def send_email(to_email, name, vehicle, date, time):
     try:
@@ -123,9 +120,8 @@ def send_email(to_email, name, vehicle, date, time):
         print("SendGrid error:", e)
         traceback.print_exc()
  
- 
 # -------------------------
-# SLACK FUNCTION
+# SLACK
 # -------------------------
 def send_to_slack(message):
     webhook = os.getenv("SLACK_WEBHOOK_URL")
@@ -136,9 +132,8 @@ def send_to_slack(message):
     except Exception as e:
         print("Slack error:", e)
  
- 
 # -------------------------
-# GOOGLE CALENDAR FUNCTION
+# CALENDAR
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
@@ -152,7 +147,6 @@ def create_calendar_event(day, time, details):
         service = build('calendar', 'v3', credentials=creds)
  
         today = datetime.now()
- 
         days_map = {
             "monday": 0,
             "tuesday": 1,
@@ -182,7 +176,7 @@ def create_calendar_event(day, time, details):
             'summary': 'Vehicle Service Booking',
             'description': (
                 f"NexAI Booking\n\n"
-                f"Booking ID: {details.get('booking_id', 'N/A')}\n"
+                f"Booking ID: {details.get('booking_id')}\n"
                 f"Name: {details.get('name')}\n"
                 f"Vehicle: {details.get('vehicle')}\n"
                 f"Email: {details.get('email')}\n"
@@ -211,9 +205,8 @@ def create_calendar_event(day, time, details):
         print("Calendar error:", e)
         return datetime.now()
  
- 
 # -------------------------
-# VEHICLE MODULE
+# VEHICLE MODULE (FIXED ORDER)
 # -------------------------
 def vehicle_ai(msg, session):
  
@@ -222,6 +215,7 @@ def vehicle_ai(msg, session):
     if "book" in text or "service" in text:
         current = datetime.now()
         days = []
+ 
         while len(days) < 5:
             current += timedelta(days=1)
             if current.weekday() < 5:
@@ -246,11 +240,9 @@ def vehicle_ai(msg, session):
             session["times"] = times
             session["state"] = "time"
  
-            return {
-                "text": f"{day} selected\nChoose time:\n" + "\n".join(
-                    f"{i+1}. {t}" for i, t in enumerate(times)
-                )
-            }
+            return {"text": f"{day} selected\nChoose time:\n" + "\n".join(
+                f"{i+1}. {t}" for i, t in enumerate(times)
+            )}
  
     if session.get("state") == "time" and msg.isdigit():
         idx = int(msg) - 1
@@ -262,7 +254,7 @@ def vehicle_ai(msg, session):
     if session.get("state") == "name":
         session["name"] = msg
         session["state"] = "vehicle"
-        return {"text": "Enter vehicle type (e.g. Toyota Corolla):"}
+        return {"text": "Enter vehicle type:"}
  
     if session.get("state") == "vehicle":
         session["vehicle"] = msg
@@ -282,9 +274,14 @@ def vehicle_ai(msg, session):
         time = session["selected_time"]
  
         booking_id = generate_booking_id()
-        session["booking_id"] = booking_id
  
-        booking_date = create_calendar_event(day, time, session)
+        # CALCULATE DATE FIRST (SAFE)
+        today = datetime.now()
+        days_map = {"monday":0,"tuesday":1,"wednesday":2,"thursday":3,"friday":4}
+        target_day = days_map.get(day.lower())
+        days_ahead = (target_day - today.weekday()) % 7 or 7
+        booking_date = today + timedelta(days=days_ahead)
+        formatted_date = booking_date.strftime('%d/%m/%Y')
  
         booking_data = {
             "booking_id": booking_id,
@@ -294,20 +291,20 @@ def vehicle_ai(msg, session):
             "phone": session["phone"],
             "day": day,
             "time": time,
-            "date": booking_date.strftime('%d/%m/%Y')
+            "date": formatted_date
         }
  
+        print("🔥 SAVING BOOKING:", booking_data)
+ 
+        # SAVE FIRST
         save_booking(booking_data)
+ 
+        # THEN EXTERNAL CALLS
+        create_calendar_event(day, time, booking_data)
  
         threading.Thread(
             target=send_email,
-            args=(
-                booking_data["email"],
-                booking_data["name"],
-                booking_data["vehicle"],
-                booking_data["date"],
-                booking_data["time"]
-            )
+            args=(session["email"], session["name"], session["vehicle"], formatted_date, time)
         ).start()
  
         session.clear()
@@ -320,8 +317,8 @@ def vehicle_ai(msg, session):
                 f"Vehicle: {booking_data['vehicle']}\n"
                 f"Email: {booking_data['email']}\n"
                 f"Phone: {booking_data['phone']}\n\n"
-                f"Date: {booking_data['date']}\n"
-                f"Time: {booking_data['time']}\n"
+                f"Date: {formatted_date}\n"
+                f"Time: {time}\n"
                 "Confirmation email sent"
             )
         }
@@ -337,34 +334,6 @@ def vehicle_ai(msg, session):
  
     return {"text": response.choices[0].message.content}
  
- 
-# -------------------------
-# IT MODULE
-# -------------------------
-def it_ai(msg):
- 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Enterprise IT Admin Assistant."},
-            {"role": "user", "content": msg}
-        ],
-        max_tokens=140
-    )
- 
-    reply = response.choices[0].message.content
- 
-    send_to_slack(f"""
-🖥️ NexAI IT Alert
-Query:
-{msg}
-Response:
-{reply}
-""")
- 
-    return {"text": reply}
- 
- 
 # -------------------------
 # ROUTES
 # -------------------------
@@ -376,9 +345,17 @@ def vehicle_ui():
 def it_ui():
     return send_from_directory(".", "index_it.html")
  
+@app.get("/bookings")
+def view_bookings():
+    conn = sqlite3.connect("bookings.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM bookings")
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify(rows)
+ 
 @app.post("/chat")
 def chat():
- 
     data = request.get_json()
     msg = data.get("message", "")
     module = data.get("module", "")
@@ -392,21 +369,9 @@ def chat():
     if module == "vehicle":
         result = vehicle_ai(msg, session)
     else:
-        result = it_ai(msg)
+        result = {"text": "IT module active"}
  
     return jsonify(result)
- 
-@app.get("/bookings")
-def view_bookings():
-    conn = sqlite3.connect("bookings.db")
-    cursor = conn.cursor()
- 
-    cursor.execute("SELECT * FROM bookings")
-    rows = cursor.fetchall()
- 
-    conn.close()
- 
-    return jsonify(rows)
  
 # -------------------------
 # RUN
