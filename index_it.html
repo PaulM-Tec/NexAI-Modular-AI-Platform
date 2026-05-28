@@ -1,165 +1,202 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
- 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<meta charset="UTF-8">
+<title>NexAI IT</title>
  
 <style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:#1e1e2f;
-}
+    body {
+        background: #0f172a;
+        font-family: Arial;
+        color: white;
+    }
  
-.app{
-  width:95%;
-  max-width:420px;
-  height:75vh;
-  margin:20px auto;
-  display:flex;
-  flex-direction:column;
-  background:#252542;
-  border-radius:12px;
-  overflow:hidden;
-}
+    .container {
+        width: 420px;
+        margin: 30px auto;
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0px 0px 10px rgba(0,0,0,0.5);
+    }
  
-.header{
-  padding:12px;
-  text-align:center;
-  background:#111;
-  color:#00d4ff;
-}
+    h2 {
+        text-align: center;
+        color: cyan;
+    }
  
-/* ONLY CHANGE IS HERE */
-.chat{
-  flex:1;
-  overflow-y:auto;
-  padding:10px;
-  padding-bottom:70px;
+    .chat-box {
+        height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+    }
  
-  display:flex;
-  flex-direction:column;  /* ensures alignment works */
-}
+    .user-message {
+        background: #0284c7;
+        padding: 10px;
+        border-radius: 12px;
+        margin: 10px 0;
+        text-align: right;
+    }
  
-/* ONLY CHANGE IS HERE */
-.msg{
-  max-width:75%;
-  padding:10px;
-  margin:5px 0;
-  border-radius:10px;
-  font-size:13px;
+    .bot-message {
+        background: #334155;
+        padding: 10px;
+        border-radius: 12px;
+        margin: 10px 0;
+    }
  
-  align-self:flex-start;  /* default left */
-}
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 14px;
+    }
  
-.user{
-  background:#0078d7;
-  color:white;
-  align-self:flex-end;   /* FORCE RIGHT */
-}
+    button.copy-btn {
+        margin-top: 8px;
+        padding: 5px 10px;
+        border: none;
+        background: #0284c7;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+    }
  
-.bot{
-  background:#2d2d44;
-  color:white;
-  align-self:flex-start; /* FORCE LEFT */
-}
+    button.copy-btn:hover {
+        background: #0369a1;
+    }
  
-.msg pre{
-  white-space:pre-wrap;
-  word-wrap:break-word;
-  background:#111;
-  padding:6px;
-  border-radius:5px;
-}
+    .input-area {
+        display: flex;
+        margin-top: 10px;
+    }
  
-.input{
-  display:flex;
-  padding:8px;
-  background:#111;
-}
+    textarea {
+        flex: 1;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        outline: none;
+        resize: none;
+    }
  
-input{
-  flex:1;
-  padding:8px;
-  background:#333;
-  color:white;
-  border:none;
-}
+    .send-btn {
+        background: #0284c7;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        margin-left: 5px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
  
-button{
-  padding:8px;
-  background:#0078d7;
-  color:white;
-  border:none;
-}
+    a {
+        color: #38bdf8;
+        text-decoration: underline;
+    }
 </style>
+ 
 </head>
  
 <body>
  
-<div class="app">
+<div class="container">
  
-<div class="header">🖥️ NexAI IT</div>
+    <h2>🖥️ NexAI IT</h2>
  
-<div id="chat" class="chat"></div>
+    <div class="chat-box" id="chatBox"></div>
  
-<div class="input">
-<input id="msg" placeholder="Ask IT..." />
-<button onclick="send()">Send</button>
-</div>
+    <div class="input-area">
+        <textarea id="inputBox" rows="2" placeholder="Ask IT..."></textarea>
+        <button class="send-btn" onclick="sendMessage()">Send</button>
+    </div>
  
 </div>
  
 <script>
-const chat=document.getElementById("chat");
-const msgInput=document.getElementById("msg");
-const session=Date.now();
  
-function add(text,type){
-  const d=document.createElement("div");
-  d.className="msg "+type;
-  d.innerHTML=type==="bot"?marked.parse(text):text;
-  chat.appendChild(d);
+let session_id = Math.random().toString();
  
-  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
+// Convert URLs into clickable links
+function formatText(text) {
+    const urlPattern = /(https?:\/\/[^\s]+|portal\.azure\.com)/g;
+   
+    return text.replace(urlPattern, function(url) {
+        if (!url.startsWith("http")) {
+            url = "https://" + url;
+        }
+        return `<a href="${url}" target="_blank/ Add user message
+function addUserMessage(text) {
+    const div = document.createElement("div");
+    div.className = "user-message";
+    div.innerText = text;
+    chatBox.appendChild(div);
 }
  
-function send(){
-  const t=msgInput.value.trim();
-  if(!t)return;
+// Add bot message (with COPY button + links)
+function addBotMessage(text) {
  
-  add(t,"user");
+    const div = document.createElement("div");
+    div.className = "bot-message";
  
-  const thinking=document.createElement("div");
-  thinking.className="msg bot";
-  thinking.innerText="Thinking...";
-  chat.appendChild(thinking);
+    const content = document.createElement("div");
+    content.innerHTML = formatText(text);
  
-  fetch("/chat",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      message:t,
-      module:"it",
-      session_id:session
-    })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    thinking.remove();
-    add(d.text,"bot");
-  });
+    // Copy button
+    const btn = document.createElement("button");
+    btn.className = "copy-btn";
+    btn.innerText = "Copy";
  
-  msgInput.value="";
+    btn.onclick = () => {
+        navigator.clipboard.writeText(text);
+        btn.innerText = "Copied";
+        setTimeout(() => btn.innerText = "Copy", 1500);
+    };
+ 
+    div.appendChild(content);
+    div.appendChild(btn);
+ 
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
  
-msgInput.addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
-    e.preventDefault();
-    send();
-  }
+// Send message
+async function sendMessage() {
+ 
+    let input = document.getElementById("inputBox");
+    let message = input.value.trim();
+ 
+    if (!message) return;
+ 
+    addUserMessage(message);
+ 
+    input.value = "";
+ 
+    const response = await fetch("/chat", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            message: message,
+            module: "it",
+            session_id: session_id
+        })
+    });
+ 
+    const data = await response.json();
+ 
+    addBotMessage(data.text);
+}
+ 
+// SHIFT + ENTER support
+document.getElementById("inputBox").addEventListener("keydown", function(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
 });
+ 
 </script>
  
 </body>
