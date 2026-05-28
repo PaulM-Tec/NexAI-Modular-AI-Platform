@@ -1,6 +1,7 @@
 import os
 import requests
 import threading
+import sqlite3
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from flask import Flask, request, jsonify, send_from_directory
@@ -28,7 +29,70 @@ CORS(app)
 sessions = {}
  
 # -------------------------
-# SENDGRID EMAIL FUNCTION FINAL
+# DATABASE INIT NEW
+# -------------------------
+def init_db():
+    conn = sqlite3.connect("bookings.db")
+    cursor = conn.cursor()
+ 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id TEXT,
+        name TEXT,
+        vehicle TEXT,
+        email TEXT,
+        phone TEXT,
+        day TEXT,
+        time TEXT,
+        date TEXT
+    )
+    """)
+ 
+    conn.commit()
+    conn.close()
+ 
+init_db()
+ 
+ 
+# -------------------------
+# BOOKING ID GENERATOR NEW
+# -------------------------
+def generate_booking_id():
+    return f"NX-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+ 
+ 
+# -------------------------
+# SAVE BOOKING NEW
+# -------------------------
+def save_booking(data):
+ 
+    conn = sqlite3.connect("bookings.db")
+    cursor = conn.cursor()
+ 
+    cursor.execute("""
+    INSERT INTO bookings (
+        booking_id, name, vehicle, email, phone, day, time, date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        data["booking_id"],
+        data["name"],
+        data["vehicle"],
+        data["email"],
+        data["phone"],
+        data["day"],
+        data["time"],
+        data["date"]
+    ))
+ 
+    conn.commit()
+    conn.close()
+ 
+    print("Booking saved:", data["booking_id"])
+ 
+ 
+# -------------------------
+# SENDGRID EMAIL FUNCTION
 # -------------------------
 def send_email(to_email, name, vehicle, date, time):
     try:
@@ -41,11 +105,9 @@ def send_email(to_email, name, vehicle, date, time):
             html_content=f"""
             <h3>Hello {name},</h3>
             <p>Your booking has been confirmed</p>
- 
             <p><b>Vehicle:</b> {vehicle}</p>
             <p><b>Date:</b> {date}</p>
             <p><b>Time:</b> {time}</p>
- 
             <br>
             <p>Thank you for using NexAI</p>
             """
@@ -100,7 +162,6 @@ def create_calendar_event(day, time, details):
         }
  
         target_day = days_map.get(day.lower())
- 
         if target_day is None:
             return datetime.now()
  
@@ -121,6 +182,7 @@ def create_calendar_event(day, time, details):
             'summary': 'Vehicle Service Booking',
             'description': (
                 f"NexAI Booking\n\n"
+                f"Booking ID: {details.get('booking_id', 'N/A')}\n"
                 f"Name: {details.get('name')}\n"
                 f"Vehicle: {details.get('vehicle')}\n"
                 f"Email: {details.get('email')}\n"
@@ -151,7 +213,7 @@ def create_calendar_event(day, time, details):
  
  
 # -------------------------
-# VEHICLE MODULE (FINAL FLOW)
+# VEHICLE MODULE
 # -------------------------
 def vehicle_ai(msg, session):
  
@@ -160,7 +222,6 @@ def vehicle_ai(msg, session):
     if "book" in text or "service" in text:
         current = datetime.now()
         days = []
- 
         while len(days) < 5:
             current += timedelta(days=1)
             if current.weekday() < 5:
@@ -175,10 +236,8 @@ def vehicle_ai(msg, session):
             )
         }
  
-    # DAY
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg) - 1
- 
         if 0 <= idx < len(session.get("days", [])):
             day = session["days"][idx]
             session["selected_day"] = day
@@ -193,35 +252,28 @@ def vehicle_ai(msg, session):
                 )
             }
  
-    # TIME
     if session.get("state") == "time" and msg.isdigit():
         idx = int(msg) - 1
- 
         if 0 <= idx < len(session.get("times", [])):
             session["selected_time"] = session["times"][idx]
             session["state"] = "name"
- 
             return {"text": "Enter your name:"}
  
-    # NAME
     if session.get("state") == "name":
         session["name"] = msg
         session["state"] = "vehicle"
         return {"text": "Enter vehicle type (e.g. Toyota Corolla):"}
  
-    # VEHICLE
     if session.get("state") == "vehicle":
         session["vehicle"] = msg
         session["state"] = "email"
         return {"text": "Enter your email:"}
  
-    # EMAIL
     if session.get("state") == "email":
         session["email"] = msg
         session["state"] = "phone"
         return {"text": "Enter phone number:"}
  
-    # PHONE (FINAL)
     if session.get("state") == "phone":
  
         session["phone"] = msg
@@ -229,17 +281,33 @@ def vehicle_ai(msg, session):
         day = session["selected_day"]
         time = session["selected_time"]
  
+        booking_id = generate_booking_id()
+        session["booking_id"] = booking_id
+ 
         booking_date = create_calendar_event(day, time, session)
  
-        name = session["name"]
-        vehicle = session["vehicle"]
-        email = session["email"]
-        phone = session["phone"]
+        booking_data = {
+            "booking_id": booking_id,
+            "name": session["name"],
+            "vehicle": session["vehicle"],
+            "email": session["email"],
+            "phone": session["phone"],
+            "day": day,
+            "time": time,
+            "date": booking_date.strftime('%d/%m/%Y')
+        }
  
-        # SEND EMAIL (ASYNC)
+        save_booking(booking_data)
+ 
         threading.Thread(
             target=send_email,
-            args=(email, name, vehicle, booking_date.strftime('%d/%m/%Y'), time)
+            args=(
+                booking_data["email"],
+                booking_data["name"],
+                booking_data["vehicle"],
+                booking_data["date"],
+                booking_data["time"]
+            )
         ).start()
  
         session.clear()
@@ -247,17 +315,17 @@ def vehicle_ai(msg, session):
         return {
             "text": (
                 "Booking Confirmed\n\n"
-                f"Name: {name}\n"
-                f"Vehicle: {vehicle}\n"
-                f"Email: {email}\n"
-                f"Phone: {phone}\n\n"
-                f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
-                f"Time: {time}\n"
+                f"Booking ID: {booking_id}\n"
+                f"Name: {booking_data['name']}\n"
+                f"Vehicle: {booking_data['vehicle']}\n"
+                f"Email: {booking_data['email']}\n"
+                f"Phone: {booking_data['phone']}\n\n"
+                f"Date: {booking_data['date']}\n"
+                f"Time: {booking_data['time']}\n"
                 "Confirmation email sent"
             )
         }
  
-    # FALLBACK AI
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -304,17 +372,14 @@ Response:
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
  
- 
 @app.get("/it")
 def it_ui():
     return send_from_directory(".", "index_it.html")
- 
  
 @app.post("/chat")
 def chat():
  
     data = request.get_json()
- 
     msg = data.get("message", "")
     module = data.get("module", "")
     session_id = data.get("session_id", "default")
