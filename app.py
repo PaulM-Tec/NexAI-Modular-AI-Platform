@@ -108,7 +108,7 @@ def is_slot_taken(day, time):
     return result is not None
  
 # -------------------------
-# SEND EMAIL (SendGrid)
+# SEND EMAIL
 # -------------------------
 def send_email(to_email, name, vehicle, date, time):
     try:
@@ -148,25 +148,41 @@ def send_to_slack(message):
         print("Slack error:", e)
  
 # -------------------------
-# IT MODULE (RESTORED)
+# UPGRADED IT MODULE
 # -------------------------
 def it_ai(msg):
+ 
+    system_prompt = """
+You are an Enterprise IT Assistant.
+ 
+Always respond using this structure:
+ 
+Problem Analysis
+Possible Causes
+Recommended Actions
+Script / Commands (if applicable)
+ 
+Keep responses practical, concise, and useful for IT engineers.
+Use real commands where relevant (PowerShell, Azure, Exchange).
+"""
  
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Enterprise IT Admin Assistant."},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": msg}
         ],
-        max_tokens=140
+        max_tokens=500
     )
  
     reply = response.choices[0].message.content
  
+    # Slack logging
     send_to_slack(f"""
-🖥️ NexAI IT Alert
+🖥️ NexAI IT Assistant
 Query:
 {msg}
+ 
 Response:
 {reply}
 """)
@@ -177,7 +193,6 @@ Response:
 # GOOGLE CALENDAR
 # -------------------------
 def create_calendar_event(day, time, details):
- 
     try:
         SCOPES = ['https://www.googleapis.com/auth/calendar']
  
@@ -233,7 +248,7 @@ Time: {time}
         print("Calendar error:", e)
  
 # -------------------------
-# VEHICLE MODULE
+# VEHICLE MODULE (UNCHANGED)
 # -------------------------
 def vehicle_ai(msg, session):
  
