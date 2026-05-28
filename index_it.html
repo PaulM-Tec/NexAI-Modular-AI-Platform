@@ -42,7 +42,6 @@ body{
   border-radius:10px;
   font-size:13px;
   align-self:flex-start;
-  position:relative;
 }
 .user{
   background:#0078d7;
@@ -62,7 +61,7 @@ body{
   border-radius:5px;
 }
  
-/* NEW: copy button styling */
+/* Copy button */
 .copy-btn{
   margin-top:5px;
   padding:4px 8px;
@@ -80,7 +79,7 @@ body{
   background:#111;
 }
  
-/* CHANGED: textarea for Shift+Enter */
+/* textarea for Shift+Enter */
 textarea{
   flex:1;
   padding:8px;
@@ -107,33 +106,40 @@ button{
  
 <div class="input">
 <textarea id="msg" rows="2" placeholder="Ask IT..."></textarea>
-<button onclick="send()">Send</button>
+<button id="sendBtn">Send</button>
 </div>
- 
 </div>
  
 <script>
  
-const chat=document.getElementById("chat");
-const msgInput=document.getElementById("msg");
-const session=Date.now();
+const chat = document.getElementById("chat");
+const msgInput = document.getElementById("msg");
+const sendBtn = document.getElementById("sendBtn");  // FIX
+const session = Date.now();
  
  
-// FIX: make links clickable
-function linkify(text){
-  return text.replace(/(https?:\/\/[^\s]+|portal\.azure\.com)/g,function(url){
-    if(!url.startsWith("http")){
-      url="https://"+url;
+// Safe Markdown + Link rendering
+function renderText(text){
+  try {
+    if (window.marked) {
+      return marked.parse(text);
     }
-    return `<a href="${url}" target="_blank" style="color:#4cc9f0n add(text,type){
+  } catch(e){
+    console.error("Marked error:", e);
+  }
+  return text; // fallback if marked fails
+}
+ 
+ 
+// ADD MESSAGE (SAFE)
+function add(text,type){
  
   const d=document.createElement("div");
   d.className="msg "+type;
  
   if(type==="bot"){
  
-    // markdown + links
-    d.innerHTML=marked.parse(linkify(text));
+    d.innerHTML = renderText(text);
  
     // copy button
     const btn=document.createElement("button");
@@ -157,11 +163,11 @@ function linkify(text){
 }
  
  
-// SEND FUNCTION (safe)
+// SEND FUNCTION (FIXED)
 function send(){
  
-  const t=msgInput.value.trim();
-  if(!t)return;
+  const t = msgInput.value.trim();
+  if(!t) return;
  
   add(t,"user");
  
@@ -169,6 +175,8 @@ function send(){
   thinking.className="msg bot";
   thinking.innerText="Thinking...";
   chat.appendChild(thinking);
+ 
+  msgInput.value="";
  
   fetch("/chat",{
     method:"POST",
@@ -184,23 +192,26 @@ function send(){
     thinking.remove();
     add(d.text,"bot");
   })
-  .catch(()=>{
-    thinking.innerText="Error contacting server";
+  .catch(err=>{
+    console.error(err);
+    thinking.innerText = "Error connecting to server";
   });
- 
-  msgInput.value="";
 }
  
  
-// ENTER + SHIFT+ENTER FIXED
-msgInput.addEventListener("keydown",e=>{
+// FIX: Button click binding (critical)
+sendBtn.addEventListener("click", send);
  
-  if(e.key==="Enter" && !e.shiftKey){
+ 
+// FIX: Enter + Shift+Enter
+msgInput.addEventListener("keydown", e=>{
+ 
+  if(e.key === "Enter" && !e.shiftKey){
     e.preventDefault();
     send();
   }
  
-  // Shift+Enter → new line (default behavior)
+  // Shift+Enter → newline (default)
 });
  
 </script>
