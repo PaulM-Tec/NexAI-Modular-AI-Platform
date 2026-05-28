@@ -23,6 +23,9 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 EMAIL_USER = os.getenv("EMAIL_USER")
  
+# FIXED DB PATH
+DB_PATH = os.path.join(os.getcwd(), "bookings.db")
+ 
 app = Flask(__name__)
 CORS(app)
  
@@ -32,7 +35,7 @@ sessions = {}
 # DATABASE INIT
 # -------------------------
 def init_db():
-    conn = sqlite3.connect("bookings.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
  
     cursor.execute("""
@@ -61,11 +64,10 @@ def generate_booking_id():
     return f"NX-{datetime.now().strftime('%Y%m%d%H%M%S')}"
  
 # -------------------------
-# SAVE BOOKING (CRITICAL)
+# SAVE BOOKING
 # -------------------------
 def save_booking(data):
- 
-    conn = sqlite3.connect("bookings.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
  
     cursor.execute("""
@@ -87,6 +89,23 @@ def save_booking(data):
     conn.close()
  
     print("Booking saved:", data["booking_id"])
+ 
+# -------------------------
+# CHECK SLOT NEW
+# -------------------------
+def is_slot_taken(day, time):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+ 
+    cursor.execute("""
+        SELECT * FROM bookings
+        WHERE day = ? AND time = ?
+    """, (day, time))
+ 
+    result = cursor.fetchone()
+    conn.close()
+ 
+    return result is not None
  
 # -------------------------
 # EMAIL (SENDGRID)
@@ -133,7 +152,7 @@ def send_to_slack(message):
         print("Slack error:", e)
  
 # -------------------------
-# CALENDAR
+# GOOGLE CALENDAR
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
@@ -147,6 +166,7 @@ def create_calendar_event(day, time, details):
         service = build('calendar', 'v3', credentials=creds)
  
         today = datetime.now()
+ 
         days_map = {
             "monday": 0,
             "tuesday": 1,
@@ -156,12 +176,7 @@ def create_calendar_event(day, time, details):
         }
  
         target_day = days_map.get(day.lower())
-        if target_day is None:
-            return datetime.now()
- 
-        days_ahead = (target_day - today.weekday()) % 7
-        if days_ahead == 0:
-            days_ahead = 7
+        days_ahead = (target_day - today.weekday()) % 7 or 7
  
         booking_date = today + timedelta(days=days_ahead)
  
@@ -199,14 +214,11 @@ def create_calendar_event(day, time, details):
             body=event
         ).execute()
  
-        return booking_date
- 
     except Exception as e:
         print("Calendar error:", e)
-        return datetime.now()
  
 # -------------------------
-# VEHICLE MODULE (FIXED ORDER)
+# VEHICLE MODULE
 # -------------------------
 def vehicle_ai(msg, session):
  
@@ -224,29 +236,26 @@ def vehicle_ai(msg, session):
         session["days"] = days
         session["state"] = "day"
  
-        return {
-            "text": "Select a service day:\n" + "\n".join(
-                f"{i+1}. {d}" for i, d in enumerate(days)
-            )
-        }
+        return {"text": "Select a service day:\n" + "\n".join(
+            f"{i+1}. {d}" for i, d in enumerate(days)
+        )}
  
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg) - 1
-        if 0 <= idx < len(session.get("days", [])):
+        if 0 <= idx < len(session["days"]):
             day = session["days"][idx]
             session["selected_day"] = day
  
-            times = ["08:00", "10:00", "13:00", "15:00"]
-            session["times"] = times
+            session["times"] = ["08:00", "10:00", "13:00", "15:00"]
             session["state"] = "time"
  
             return {"text": f"{day} selected\nChoose time:\n" + "\n".join(
-                f"{i+1}. {t}" for i, t in enumerate(times)
+                f"{i+1}. {t}" for i, t in enumerate(session["times"])
             )}
  
     if session.get("state") == "time" and msg.isdigit():
         idx = int(msg) - 1
-        if 0 <= idx < len(session.get("times", [])):
+        if 0 <= idx < len(session["times"]):
             session["selected_time"] = session["times"][idx]
             session["state"] = "name"
             return {"text": "Enter your name:"}
@@ -273,13 +282,19 @@ def vehicle_ai(msg, session):
         day = session["selected_day"]
         time = session["selected_time"]
  
+        # DOUBLE BOOKING CHECK
+        if is_slot_taken(day, time):
+            return {
+                "text": "This time slot is already booked. Please choose another time."
+            }
+ 
         booking_id = generate_booking_id()
  
-        # CALCULATE DATE FIRST (SAFE)
         today = datetime.now()
         days_map = {"monday":0,"tuesday":1,"wednesday":2,"thursday":3,"friday":4}
         target_day = days_map.get(day.lower())
         days_ahead = (target_day - today.weekday()) % 7 or 7
+ 
         booking_date = today + timedelta(days=days_ahead)
         formatted_date = booking_date.strftime('%d/%m/%Y')
  
@@ -294,12 +309,7 @@ def vehicle_ai(msg, session):
             "date": formatted_date
         }
  
-        print("🔥 SAVING BOOKING:", booking_data)
- 
-        # SAVE FIRST
         save_booking(booking_data)
- 
-        # THEN EXTERNAL CALLS
         create_calendar_event(day, time, booking_data)
  
         threading.Thread(
@@ -341,13 +351,9 @@ def vehicle_ai(msg, session):
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
  
-@app.get("/it")
-def it_ui():
-    return send_from_directory(".", "index_it.html")
- 
 @app.get("/bookings")
 def view_bookings():
-    conn = sqlite3.connect("bookings.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM bookings")
     rows = cursor.fetchall()
@@ -358,19 +364,12 @@ def view_bookings():
 def chat():
     data = request.get_json()
     msg = data.get("message", "")
-    module = data.get("module", "")
     session_id = data.get("session_id", "default")
  
     if session_id not in sessions:
         sessions[session_id] = {}
  
-    session = sessions[session_id]
- 
-    if module == "vehicle":
-        result = vehicle_ai(msg, session)
-    else:
-        result = {"text": "IT module active"}
- 
+    result = vehicle_ai(msg, sessions[session_id])
     return jsonify(result)
  
 # -------------------------
