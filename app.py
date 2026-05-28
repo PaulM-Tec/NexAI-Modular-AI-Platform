@@ -1,6 +1,7 @@
 import os
 import requests
 import smtplib
+import threading
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -27,10 +28,12 @@ CORS(app)
 sessions = {}
  
 # -------------------------
-# EMAIL FUNCTION NEW
+# EMAIL FUNCTION FIXED
 # -------------------------
 def send_email(to_email, name, vehicle, date, time):
     try:
+        print("Attempting email send...")
+ 
         subject = "Vehicle Service Booking Confirmed"
  
         body = f"""
@@ -50,7 +53,7 @@ Thank you for using NexAI
         msg["From"] = EMAIL_USER
         msg["To"] = to_email
  
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASS)
         server.send_message(msg)
@@ -80,7 +83,6 @@ def send_to_slack(message):
 # GOOGLE CALENDAR FUNCTION
 # -------------------------
 def create_calendar_event(day, time, details):
- 
     try:
         print("FUNCTION CALLED:", day, time)
  
@@ -169,7 +171,6 @@ def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # START BOOKING
     if "book" in text or "service" in text:
         current = datetime.now()
         days = []
@@ -188,7 +189,6 @@ def vehicle_ai(msg, session):
             )
         }
  
-    # DAY
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg) - 1
  
@@ -206,7 +206,6 @@ def vehicle_ai(msg, session):
                 )
             }
  
-    # TIME
     if session.get("state") == "time" and msg.isdigit():
         idx = int(msg) - 1
  
@@ -216,21 +215,18 @@ def vehicle_ai(msg, session):
  
             return {"text": "Enter your name:"}
  
-    # NAME
     if session.get("state") == "name":
         session["name"] = msg
         session["state"] = "vehicle"
  
         return {"text": "Enter vehicle type (e.g. Toyota Corolla):"}
  
-    # VEHICLE
     if session.get("state") == "vehicle":
         session["vehicle"] = msg
         session["state"] = "contact"
  
         return {"text": "Enter contact email:"}
  
-    # CONTACT + FINAL
     if session.get("state") == "contact":
  
         session["contact"] = msg
@@ -246,14 +242,17 @@ def vehicle_ai(msg, session):
         vehicle = session["vehicle"]
         contact = session["contact"]
  
-        # SEND EMAIL HERE
-        send_email(
-            to_email=contact,
-            name=name,
-            vehicle=vehicle,
-            date=booking_date.strftime('%d/%m/%Y'),
-            time=time
-        )
+        # NON-BLOCKING EMAIL (FIX)
+        threading.Thread(
+            target=send_email,
+            args=(
+                contact,
+                name,
+                vehicle,
+                booking_date.strftime('%d/%m/%Y'),
+                time
+            )
+        ).start()
  
         session.clear()
  
@@ -266,11 +265,10 @@ def vehicle_ai(msg, session):
                 f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
                 f"Day: {day}\n"
                 f"Time: {time}\n"
-                "Confirmation email sent"
+                "Confirmation email is being sent"
             )
         }
  
-    # FALLBACK AI
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
