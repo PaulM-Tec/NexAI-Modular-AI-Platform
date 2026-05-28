@@ -396,6 +396,17 @@ def chat():
  
     return jsonify(result)
  
+@app.get("/bookings")
+def view_bookings():
+    conn = sqlite3.connect("bookings.db")
+    cursor = conn.cursor()
+ 
+    cursor.execute("SELECT * FROM bookings")
+    rows = cursor.fetchall()
+ 
+    conn.close()
+ 
+    return jsonify(rows)
  
 # -------------------------
 # RUN
