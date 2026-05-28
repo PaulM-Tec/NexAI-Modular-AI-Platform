@@ -1,8 +1,8 @@
 import os
 import requests
-import smtplib
 import threading
-from email.mime.text import MIMEText
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -19,8 +19,8 @@ from googleapiclient.discovery import build
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
  
 app = Flask(__name__)
 CORS(app)
@@ -28,49 +28,39 @@ CORS(app)
 sessions = {}
  
 # -------------------------
-# EMAIL FUNCTION FIXED
+# SENDGRID EMAIL FUNCTION FINAL
 # -------------------------
 def send_email(to_email, name, vehicle, date, time):
     try:
-        print("Attempting email send...")
+        print("Sending email via SendGrid...")
  
-        subject = "Vehicle Service Booking Confirmed"
+        message = Mail(
+            from_email=EMAIL_USER,
+            to_emails=to_email,
+            subject='Vehicle Service Booking Confirmed',
+            html_content=f"""
+            <h3>Hello {name},</h3>
+            <p>Your booking has been confirmed</p>
  
-        body = f"""
-Hello {name},
+            <p><b>Vehicle:</b> {vehicle}</p>
+            <p><b>Date:</b> {date}</p>
+            <p><b>Time:</b> {time}</p>
  
-Your booking has been confirmed
+            <br>
+            <p>Thank you for using NexAI</p>
+            """
+        )
  
-Vehicle: {vehicle}
-Date: {date}
-Time: {time}
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
  
-Thank you for using NexAI
-"""
- 
-        msg = MIMEText(body)
-        msg["Subject"] = subject
-        msg["From"] = EMAIL_USER
-        msg["To"] = to_email
- 
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
-        server.starttls()
-        server.login(EMAIL_USER, EMAIL_PASS)
- 
-        print("LOGIN SUCCESS")
- 
-        result = server.send_message(msg)
- 
-        print("MESSAGE SENT RESULT:", result)
- 
-        server.quit()
- 
-        print("Email sent successfully to:", to_email)
+        print("SendGrid response:", response.status_code)
  
     except Exception as e:
         import traceback
-        print("EMAIL ERROR:", e)
+        print("SendGrid error:", e)
         traceback.print_exc()
+ 
  
 # -------------------------
 # SLACK FUNCTION
@@ -78,7 +68,6 @@ Thank you for using NexAI
 def send_to_slack(message):
     webhook = os.getenv("SLACK_WEBHOOK_URL")
     if not webhook:
-        print("Slack webhook not set")
         return
     try:
         requests.post(webhook, json={"text": message})
@@ -91,8 +80,6 @@ def send_to_slack(message):
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
-        print("FUNCTION CALLED:", day, time)
- 
         SCOPES = ['https://www.googleapis.com/auth/calendar']
  
         creds = service_account.Credentials.from_service_account_file(
@@ -115,7 +102,6 @@ def create_calendar_event(day, time, details):
         target_day = days_map.get(day.lower())
  
         if target_day is None:
-            print("Invalid day received:", day)
             return datetime.now()
  
         days_ahead = (target_day - today.weekday()) % 7
@@ -123,8 +109,6 @@ def create_calendar_event(day, time, details):
             days_ahead = 7
  
         booking_date = today + timedelta(days=days_ahead)
- 
-        print("CALCULATED DATE:", booking_date)
  
         start_datetime = datetime.strptime(
             f"{booking_date.strftime('%Y-%m-%d')} {time}",
@@ -139,7 +123,8 @@ def create_calendar_event(day, time, details):
                 f"NexAI Booking\n\n"
                 f"Name: {details.get('name')}\n"
                 f"Vehicle: {details.get('vehicle')}\n"
-                f"Contact: {details.get('contact')}\n\n"
+                f"Email: {details.get('email')}\n"
+                f"Phone: {details.get('phone')}\n\n"
                 f"Day: {day}\n"
                 f"Time: {time}"
             ),
@@ -153,26 +138,20 @@ def create_calendar_event(day, time, details):
             }
         }
  
-        print("SENDING EVENT TO CALENDAR...")
- 
         service.events().insert(
             calendarId='170013714c22b8ae82dd253ea8480175e8ad8708ec57997dddd64a411be8ad41@group.calendar.google.com',
             body=event
         ).execute()
  
-        print("EVENT CREATED SUCCESSFULLY")
- 
         return booking_date
  
     except Exception as e:
-        import traceback
-        print("CALENDAR ERROR:", e)
-        traceback.print_exc()
+        print("Calendar error:", e)
         return datetime.now()
  
  
 # -------------------------
-# VEHICLE MODULE
+# VEHICLE MODULE (FINAL FLOW)
 # -------------------------
 def vehicle_ai(msg, session):
  
@@ -196,6 +175,7 @@ def vehicle_ai(msg, session):
             )
         }
  
+    # DAY
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg) - 1
  
@@ -213,6 +193,7 @@ def vehicle_ai(msg, session):
                 )
             }
  
+    # TIME
     if session.get("state") == "time" and msg.isdigit():
         idx = int(msg) - 1
  
@@ -222,43 +203,43 @@ def vehicle_ai(msg, session):
  
             return {"text": "Enter your name:"}
  
+    # NAME
     if session.get("state") == "name":
         session["name"] = msg
         session["state"] = "vehicle"
- 
         return {"text": "Enter vehicle type (e.g. Toyota Corolla):"}
  
+    # VEHICLE
     if session.get("state") == "vehicle":
         session["vehicle"] = msg
-        session["state"] = "contact"
+        session["state"] = "email"
+        return {"text": "Enter your email:"}
  
-        return {"text": "Enter contact email:"}
+    # EMAIL
+    if session.get("state") == "email":
+        session["email"] = msg
+        session["state"] = "phone"
+        return {"text": "Enter phone number:"}
  
-    if session.get("state") == "contact":
+    # PHONE (FINAL)
+    if session.get("state") == "phone":
  
-        session["contact"] = msg
+        session["phone"] = msg
  
         day = session["selected_day"]
         time = session["selected_time"]
- 
-        print("ABOUT TO CREATE EVENT:", day, time)
  
         booking_date = create_calendar_event(day, time, session)
  
         name = session["name"]
         vehicle = session["vehicle"]
-        contact = session["contact"]
+        email = session["email"]
+        phone = session["phone"]
  
-        # NON-BLOCKING EMAIL (FIX)
+        # SEND EMAIL (ASYNC)
         threading.Thread(
             target=send_email,
-            args=(
-                contact,
-                name,
-                vehicle,
-                booking_date.strftime('%d/%m/%Y'),
-                time
-            )
+            args=(email, name, vehicle, booking_date.strftime('%d/%m/%Y'), time)
         ).start()
  
         session.clear()
@@ -268,14 +249,15 @@ def vehicle_ai(msg, session):
                 "Booking Confirmed\n\n"
                 f"Name: {name}\n"
                 f"Vehicle: {vehicle}\n"
-                f"Contact: {contact}\n\n"
+                f"Email: {email}\n"
+                f"Phone: {phone}\n\n"
                 f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
-                f"Day: {day}\n"
                 f"Time: {time}\n"
-                "Confirmation email is being sent"
+                "Confirmation email sent"
             )
         }
  
+    # FALLBACK AI
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
