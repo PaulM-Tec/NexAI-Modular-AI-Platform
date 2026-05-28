@@ -61,7 +61,7 @@ body{
   border-radius:5px;
 }
  
-/* Copy button */
+/* COPY BUTTON */
 .copy-btn{
   margin-top:5px;
   padding:4px 8px;
@@ -79,7 +79,6 @@ body{
   background:#111;
 }
  
-/* textarea for Shift+Enter */
 textarea{
   flex:1;
   padding:8px;
@@ -94,6 +93,7 @@ button{
   background:#0078d7;
   color:white;
   border:none;
+  cursor:pointer;
 }
 </style>
 </head>
@@ -106,32 +106,25 @@ button{
  
 <div class="input">
 <textarea id="msg" rows="2" placeholder="Ask IT..."></textarea>
-<button id="sendBtn">Send</button>
+<button onclick="send()">Send</button>
 </div>
+ 
 </div>
  
 <script>
  
-const chat = document.getElementById("chat");
-const msgInput = document.getElementById("msg");
-const sendBtn = document.getElementById("sendBtn");  // FIX
-const session = Date.now();
+const chat=document.getElementById("chat");
+const msgInput=document.getElementById("msg");
+const session=Date.now();
  
  
-// Safe Markdown + Link rendering
-function renderText(text){
-  try {
-    if (window.marked) {
-      return marked.parse(text);
+// LINKIFY (kept minimal + safe)
+function linkify(text){
+  return text.replace(/(https?:\/\/[^\s]+|portal\.azure\.com)/g,function(url){
+    if(!url.startsWith("http")){
+      url="https://"+url;
     }
-  } catch(e){
-    console.error("Marked error:", e);
-  }
-  return text; // fallback if marked fails
-}
- 
- 
-// ADD MESSAGE (SAFE)
+    return `<a href="${url}" target="_blank" style="color:#4cc9fIS THE MAIN UPGRADE)
 function add(text,type){
  
   const d=document.createElement("div");
@@ -139,20 +132,40 @@ function add(text,type){
  
   if(type==="bot"){
  
-    d.innerHTML = renderText(text);
+    // Render markdown + links
+    d.innerHTML = marked.parse(linkify(text));
  
-    // copy button
-    const btn=document.createElement("button");
-    btn.className="copy-btn";
-    btn.innerText="Copy";
+    // FIND ALL SCRIPT BLOCKS
+    const codeBlocks = d.querySelectorAll("pre");
  
-    btn.onclick=()=>{
-      navigator.clipboard.writeText(text);
-      btn.innerText="Copied!";
-      setTimeout(()=>btn.innerText="Copy",1500);
-    };
+    codeBlocks.forEach(block => {
  
-    d.appendChild(btn);
+        // CLEAN + SPLIT LINES
+        let lines = block.innerText
+            .split("\n")
+            .map(l => l.trim())
+            .filter(l => l !== "");
+ 
+        if(lines.length === 0) return;
+ 
+        // NUMBER COMMANDS
+        let numbered = lines.map((line,i)=>`${i+1}. ${line}`).join("\n");
+ 
+        block.innerText = numbered;
+ 
+        // COPY BUTTON (COMMANDS ONLY)
+        const btn=document.createElement("button");
+        btn.className="copy-btn";
+        btn.innerText="Copy Commands";
+ 
+        btn.onclick=()=>{
+            navigator.clipboard.writeText(numbered);
+            btn.innerText="Copied!";
+            setTimeout(()=>btn.innerText="Copy Commands",1500);
+        };
+ 
+        block.parentNode.appendChild(btn);
+    });
  
   }else{
     d.innerText=text;
@@ -163,11 +176,11 @@ function add(text,type){
 }
  
  
-// SEND FUNCTION (FIXED)
+// SEND FUNCTION (STABLE)
 function send(){
  
-  const t = msgInput.value.trim();
-  if(!t) return;
+  const t=msgInput.value.trim();
+  if(!t)return;
  
   add(t,"user");
  
@@ -192,26 +205,21 @@ function send(){
     thinking.remove();
     add(d.text,"bot");
   })
-  .catch(err=>{
-    console.error(err);
-    thinking.innerText = "Error connecting to server";
+  .catch(()=>{
+    thinking.innerText="Error contacting server";
   });
 }
  
  
-// FIX: Button click binding (critical)
-sendBtn.addEventListener("click", send);
+// ENTER + SHIFT+ENTER (SAFE)
+msgInput.addEventListener("keydown",e=>{
  
- 
-// FIX: Enter + Shift+Enter
-msgInput.addEventListener("keydown", e=>{
- 
-  if(e.key === "Enter" && !e.shiftKey){
+  if(e.key==="Enter" && !e.shiftKey){
     e.preventDefault();
     send();
   }
  
-  // Shift+Enter → newline (default)
+  // Shift+Enter → newline
 });
  
 </script>
