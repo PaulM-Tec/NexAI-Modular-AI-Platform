@@ -91,7 +91,7 @@ def save_booking(data):
     print("Booking saved:", data["booking_id"])
  
 # -------------------------
-# CHECK SLOT NEW
+# CHECK SLOT
 # -------------------------
 def is_slot_taken(day, time):
     conn = sqlite3.connect(DB_PATH)
@@ -108,12 +108,10 @@ def is_slot_taken(day, time):
     return result is not None
  
 # -------------------------
-# EMAIL (SENDGRID)
+# SEND EMAIL (SendGrid)
 # -------------------------
 def send_email(to_email, name, vehicle, date, time):
     try:
-        print("Sending email via SendGrid...")
- 
         message = Mail(
             from_email=EMAIL_USER,
             to_emails=to_email,
@@ -132,15 +130,13 @@ def send_email(to_email, name, vehicle, date, time):
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
  
-        print("SendGrid response:", response.status_code)
+        print("Email sent:", response.status_code)
  
     except Exception as e:
-        import traceback
-        print("SendGrid error:", e)
-        traceback.print_exc()
+        print("Email error:", e)
  
 # -------------------------
-# SLACK
+# SLACK FUNCTION
 # -------------------------
 def send_to_slack(message):
     webhook = os.getenv("SLACK_WEBHOOK_URL")
@@ -152,9 +148,36 @@ def send_to_slack(message):
         print("Slack error:", e)
  
 # -------------------------
+# IT MODULE (RESTORED)
+# -------------------------
+def it_ai(msg):
+ 
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Enterprise IT Admin Assistant."},
+            {"role": "user", "content": msg}
+        ],
+        max_tokens=140
+    )
+ 
+    reply = response.choices[0].message.content
+ 
+    send_to_slack(f"""
+🖥️ NexAI IT Alert
+Query:
+{msg}
+Response:
+{reply}
+""")
+ 
+    return {"text": reply}
+ 
+# -------------------------
 # GOOGLE CALENDAR
 # -------------------------
 def create_calendar_event(day, time, details):
+ 
     try:
         SCOPES = ['https://www.googleapis.com/auth/calendar']
  
@@ -167,14 +190,7 @@ def create_calendar_event(day, time, details):
  
         today = datetime.now()
  
-        days_map = {
-            "monday": 0,
-            "tuesday": 1,
-            "wednesday": 2,
-            "thursday": 3,
-            "friday": 4
-        }
- 
+        days_map = {"monday":0,"tuesday":1,"wednesday":2,"thursday":3,"friday":4}
         target_day = days_map.get(day.lower())
         days_ahead = (target_day - today.weekday()) % 7 or 7
  
@@ -189,23 +205,22 @@ def create_calendar_event(day, time, details):
  
         event = {
             'summary': 'Vehicle Service Booking',
-            'description': (
-                f"NexAI Booking\n\n"
-                f"Booking ID: {details.get('booking_id')}\n"
-                f"Name: {details.get('name')}\n"
-                f"Vehicle: {details.get('vehicle')}\n"
-                f"Email: {details.get('email')}\n"
-                f"Phone: {details.get('phone')}\n\n"
-                f"Day: {day}\n"
-                f"Time: {time}"
-            ),
+            'description': f"""
+Booking ID: {details.get('booking_id')}
+Name: {details.get('name')}
+Vehicle: {details.get('vehicle')}
+Email: {details.get('email')}
+Phone: {details.get('phone')}
+Day: {day}
+Time: {time}
+""",
             'start': {
                 'dateTime': start_datetime.isoformat(),
-                'timeZone': 'Africa/Johannesburg',
+                'timeZone': 'Africa/Johannesburg'
             },
             'end': {
                 'dateTime': end_datetime.isoformat(),
-                'timeZone': 'Africa/Johannesburg',
+                'timeZone': 'Africa/Johannesburg'
             }
         }
  
@@ -225,8 +240,8 @@ def vehicle_ai(msg, session):
     text = msg.lower()
  
     if "book" in text or "service" in text:
-        current = datetime.now()
         days = []
+        current = datetime.now()
  
         while len(days) < 5:
             current += timedelta(days=1)
@@ -243,13 +258,11 @@ def vehicle_ai(msg, session):
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg) - 1
         if 0 <= idx < len(session["days"]):
-            day = session["days"][idx]
-            session["selected_day"] = day
- 
+            session["selected_day"] = session["days"][idx]
             session["times"] = ["08:00", "10:00", "13:00", "15:00"]
             session["state"] = "time"
  
-            return {"text": f"{day} selected\nChoose time:\n" + "\n".join(
+            return {"text": "Choose time:\n" + "\n".join(
                 f"{i+1}. {t}" for i, t in enumerate(session["times"])
             )}
  
@@ -278,24 +291,17 @@ def vehicle_ai(msg, session):
     if session.get("state") == "phone":
  
         session["phone"] = msg
- 
         day = session["selected_day"]
         time = session["selected_time"]
  
-        # DOUBLE BOOKING CHECK
         if is_slot_taken(day, time):
-            return {
-                "text": "This time slot is already booked. Please choose another time."
-            }
+            return {"text": "This time slot is already booked. Please choose another time."}
  
         booking_id = generate_booking_id()
  
         today = datetime.now()
-        days_map = {"monday":0,"tuesday":1,"wednesday":2,"thursday":3,"friday":4}
-        target_day = days_map.get(day.lower())
-        days_ahead = (target_day - today.weekday()) % 7 or 7
- 
-        booking_date = today + timedelta(days=days_ahead)
+        target_day = {"monday":0,"tuesday":1,"wednesday":2,"thursday":3,"friday":4}[day.lower()]
+        booking_date = today + timedelta(days=(target_day - today.weekday()) % 7 or 7)
         formatted_date = booking_date.strftime('%d/%m/%Y')
  
         booking_data = {
@@ -319,30 +325,13 @@ def vehicle_ai(msg, session):
  
         session.clear()
  
-        return {
-            "text": (
-                "Booking Confirmed\n\n"
-                f"Booking ID: {booking_id}\n"
-                f"Name: {booking_data['name']}\n"
-                f"Vehicle: {booking_data['vehicle']}\n"
-                f"Email: {booking_data['email']}\n"
-                f"Phone: {booking_data['phone']}\n\n"
-                f"Date: {formatted_date}\n"
-                f"Time: {time}\n"
-                "Confirmation email sent"
-            )
-        }
+        return {"text": f"""
+Booking Confirmed
  
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Automotive assistant."},
-            {"role": "user", "content": msg}
-        ],
-        max_tokens=120
-    )
- 
-    return {"text": response.choices[0].message.content}
+Booking ID: {booking_id}
+Date: {formatted_date}
+Time: {time}
+"""}
  
 # -------------------------
 # ROUTES
@@ -350,6 +339,10 @@ def vehicle_ai(msg, session):
 @app.get("/vehicle")
 def vehicle_ui():
     return send_from_directory(".", "index_vehicle.html")
+ 
+@app.get("/it")
+def it_ui():
+    return send_from_directory(".", "index_it.html")
  
 @app.get("/bookings")
 def view_bookings():
@@ -364,12 +357,17 @@ def view_bookings():
 def chat():
     data = request.get_json()
     msg = data.get("message", "")
+    module = data.get("module", "vehicle")
     session_id = data.get("session_id", "default")
  
     if session_id not in sessions:
         sessions[session_id] = {}
  
-    result = vehicle_ai(msg, sessions[session_id])
+    if module == "vehicle":
+        result = vehicle_ai(msg, sessions[session_id])
+    else:
+        result = it_ai(msg)
+ 
     return jsonify(result)
  
 # -------------------------
