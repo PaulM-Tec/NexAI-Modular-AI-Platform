@@ -152,18 +152,53 @@ def send_to_slack(message):
 # -------------------------
 def it_ai(msg):
  
-    system_prompt = """
+    text = msg.lower()
+ 
+    # SIMPLE INTENT DETECTION
+    if any(word in text for word in ["error", "not working", "issue", "fail", "cannot"]):
+        mode = "troubleshoot"
+    elif any(word in text for word in ["how to", "add", "create", "setup", "configure"]):
+        mode = "task"
+    else:
+        mode = "general"
+ 
+    # DIFFERENT PROMPTS
+    if mode == "troubleshoot":
+        system_prompt = """
 You are an Enterprise IT Assistant.
  
-Always respond using this structure:
+Structure your response as:
  
 Problem Analysis
 Possible Causes
 Recommended Actions
-Script / Commands (if applicable)
+Script / Commands
  
-Keep responses practical, concise, and useful for IT engineers.
-Use real commands where relevant (PowerShell, Azure, Exchange).
+Be concise and practical.
+"""
+ 
+    elif mode == "task":
+        system_prompt = """
+You are an Enterprise IT Assistant.
+ 
+The user is asking HOW TO perform a task.
+ 
+Structure your response as:
+ 
+Task Overview
+Steps (clear step-by-step)
+Script / Commands
+Notes (optional)
+ 
+Do NOT frame it as a problem.
+"""
+ 
+    else:
+        system_prompt = """
+You are an Enterprise IT Assistant.
+ 
+Provide a clear, concise, technical answer.
+Include scripts if useful.
 """
  
     response = client.chat.completions.create(
@@ -177,7 +212,6 @@ Use real commands where relevant (PowerShell, Azure, Exchange).
  
     reply = response.choices[0].message.content
  
-    # Slack logging
     send_to_slack(f"""
 🖥️ NexAI IT Assistant
 Query:
