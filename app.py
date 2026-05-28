@@ -36,9 +36,10 @@ def send_to_slack(message):
  
  
 # -------------------------
-# GOOGLE CALENDAR FUNCTION (FINAL DEBUG VERSION)
+# GOOGLE CALENDAR FUNCTION
 # -------------------------
-def create_calendar_event(day, time):
+def create_calendar_event(day, time, details):
+ 
     try:
         print("FUNCTION CALLED:", day, time)
  
@@ -51,7 +52,6 @@ def create_calendar_event(day, time):
  
         service = build('calendar', 'v3', credentials=creds)
  
-        # Calculate correct next date
         today = datetime.now()
  
         days_map = {
@@ -76,7 +76,6 @@ def create_calendar_event(day, time):
  
         print("CALCULATED DATE:", booking_date)
  
-        # Build datetime
         start_datetime = datetime.strptime(
             f"{booking_date.strftime('%Y-%m-%d')} {time}",
             "%Y-%m-%d %H:%M"
@@ -84,9 +83,17 @@ def create_calendar_event(day, time):
  
         end_datetime = start_datetime + timedelta(hours=1)
  
+        # FULL DETAILS NOW INCLUDED
         event = {
             'summary': 'Vehicle Service Booking',
-            'description': f'NexAI Booking\nDay: {day}\nTime: {time}',
+            'description': (
+                f"NexAI Booking\n\n"
+                f"Name: {details.get('name')}\n"
+                f"Vehicle: {details.get('vehicle')}\n"
+                f"Contact: {details.get('contact')}\n\n"
+                f"Day: {day}\n"
+                f"Time: {time}"
+            ),
             'start': {
                 'dateTime': start_datetime.isoformat(),
                 'timeZone': 'Africa/Johannesburg',
@@ -116,12 +123,13 @@ def create_calendar_event(day, time):
  
  
 # -------------------------
-# VEHICLE MODULE (FORCED EXECUTION FIX)
+# VEHICLE MODULE (UPDATED FLOW)
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
+    # START BOOKING
     if "book" in text or "service" in text:
         current = datetime.now()
         days = []
@@ -140,9 +148,8 @@ def vehicle_ai(msg, session):
             )
         }
  
-    # DAY SELECTION
+    # DAY
     if session.get("state") == "day" and msg.isdigit():
- 
         idx = int(msg) - 1
  
         if 0 <= idx < len(session.get("days", [])):
@@ -160,71 +167,98 @@ def vehicle_ai(msg, session):
                 )
             }
  
-    # FORCE EXECUTION FOR TIME (IMPORTANT FIX)
-    if msg.isdigit():
+    # TIME
+    if session.get("state") == "time" and msg.isdigit():
  
         idx = int(msg) - 1
  
-        if "times" in session and 0 <= idx < len(session["times"]):
- 
-            time = session["times"][idx]
-            day = session.get("selected_day", "")
- 
-            print("ABOUT TO CREATE EVENT:", day, time)
- 
-            booking_date = create_calendar_event(day, time)
- 
-            session.clear()
+        if 0 <= idx < len(session.get("times", [])):
+            session["selected_time"] = session["times"][idx]
+            session["state"] = "name"
  
             return {
-                "text": (
-                    "NEW LOGIC RUNNING\n\nBooking Confirmed\n\n"
-                    f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
-                    f"Day: {day}\n"
-                    f"Time: {time}\n"
-                    "Service Type: General Service"
-                ),
-                "type": "booking",
-                "data": {
-                    "day": day,
-                    "time": time,
-                    "service_type": "General Service"
-                }
+                "text": "Enter your name:"
             }
+ 
+    # NAME
+    if session.get("state") == "name":
+        session["name"] = msg
+        session["state"] = "vehicle"
+ 
+        return {
+            "text": "Enter vehicle type (e.g. Toyota Corolla):"
+        }
+ 
+    # VEHICLE
+    if session.get("state") == "vehicle":
+        session["vehicle"] = msg
+        session["state"] = "contact"
+ 
+        return {
+            "text": "Enter contact number or email:"
+        }
+ 
+    # CONTACT + FINAL BOOKING
+    if session.get("state") == "contact":
+ 
+        session["contact"] = msg
+ 
+        day = session["selected_day"]
+        time = session["selected_time"]
+ 
+        print("ABOUT TO CREATE EVENT:", day, time)
+ 
+        booking_date = create_calendar_event(day, time, session)
+ 
+        name = session["name"]
+        vehicle = session["vehicle"]
+        contact = session["contact"]
+ 
+        session.clear()
+ 
+        return {
+            "text": (
+                "Booking Confirmed\n\n"
+                f"Name: {name}\n"
+                f"Vehicle: {vehicle}\n"
+                f"Contact: {contact}\n\n"
+                f"Date: {booking_date.strftime('%d/%m/%Y')}\n"
+                f"Day: {day}\n"
+                f"Time: {time}\n"
+                "Service Type: General Service"
+            ),
+            "type": "booking",
+            "data": {
+                "day": day,
+                "time": time,
+                "name": name,
+                "vehicle": vehicle,
+                "contact": contact
+            }
+        }
  
     # FALLBACK AI
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Automotive assistant.\n"
-                    "Provide structured answers."
-                )
-            },
+            {"role": "system", "content": "Automotive assistant."},
             {"role": "user", "content": msg}
         ],
         max_tokens=120
     )
  
-    return {
-        "text": response.choices[0].message.content
-    }
+    return {"text": response.choices[0].message.content}
  
  
 # -------------------------
-# IT MODULE (SLACK)
+# IT MODULE
 # -------------------------
 def it_ai(msg):
  
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {
-                "role": "system",
-                "content": "Enterprise IT Admin Assistant."
-            },
+            {"role": "system", "content": "Enterprise IT Admin Assistant."},
             {"role": "user", "content": msg}
         ],
         max_tokens=140
@@ -234,10 +268,8 @@ def it_ai(msg):
  
     send_to_slack(f"""
 🖥️ NexAI IT Alert
- 
 Query:
 {msg}
- 
 Response:
 {reply}
 """)
