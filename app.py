@@ -56,14 +56,21 @@ Thank you for using NexAI
         server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASS)
-        server.send_message(msg)
+ 
+        print("LOGIN SUCCESS")
+ 
+        result = server.send_message(msg)
+ 
+        print("MESSAGE SENT RESULT:", result)
+ 
         server.quit()
  
-        print("Email sent to:", to_email)
+        print("Email sent successfully to:", to_email)
  
     except Exception as e:
-        print("Email error:", e)
- 
+        import traceback
+        print("EMAIL ERROR:", e)
+        traceback.print_exc()
  
 # -------------------------
 # SLACK FUNCTION
