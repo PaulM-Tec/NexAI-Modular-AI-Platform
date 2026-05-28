@@ -1,186 +1,206 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>NexAI IT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
-    <style>
-        body {
-            background: #0b132b;
-            font-family: Arial;
-            color: white;
-        }
+<style>
+body{
+  margin:0;
+  font-family:Arial;
+  background:#1e1e2f;
+}
+.app{
+  width:95%;
+  max-width:420px;
+  height:75vh;
+  margin:20px auto;
+  display:flex;
+  flex-direction:column;
+  background:#252542;
+  border-radius:12px;
+  overflow:hidden;
+}
+.header{
+  padding:12px;
+  text-align:center;
+  background:#111;
+  color:#00d4ff;
+}
+.chat{
+  flex:1;
+  overflow-y:auto;
+  padding:10px;
+  padding-bottom:70px;
+  display:flex;
+  flex-direction:column;
+}
+.msg{
+  max-width:75%;
+  padding:10px;
+  margin:5px 0;
+  border-radius:10px;
+  font-size:13px;
+  align-self:flex-start;
+  position:relative;
+}
+.user{
+  background:#0078d7;
+  color:white;
+  align-self:flex-end;
+}
+.bot{
+  background:#2d2d44;
+  color:white;
+  align-self:flex-start;
+}
+.msg pre{
+  white-space:pre-wrap;
+  word-wrap:break-word;
+  background:#111;
+  padding:6px;
+  border-radius:5px;
+}
  
-        .chat-container {
-            width: 400px;
-            margin: 40px auto;
-            background: #1c2541;
-            padding: 15px;
-            border-radius: 12px;
-        }
+/* NEW: copy button styling */
+.copy-btn{
+  margin-top:5px;
+  padding:4px 8px;
+  font-size:11px;
+  background:#0078d7;
+  border:none;
+  color:white;
+  border-radius:5px;
+  cursor:pointer;
+}
  
-        .chat-box {
-            height: 400px;
-            overflow-y: auto;
-            padding: 10px;
-        }
+.input{
+  display:flex;
+  padding:8px;
+  background:#111;
+}
  
-        .user-msg {
-            background: #0077b6;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 10px 0;
-            text-align: right;
-        }
+/* CHANGED: textarea for Shift+Enter */
+textarea{
+  flex:1;
+  padding:8px;
+  background:#333;
+  color:white;
+  border:none;
+  resize:none;
+}
  
-        .bot-msg {
-            background: #3a506b;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 10px 0;
-        }
- 
-        textarea {
-            width: 75%;
-            padding: 10px;
-            border-radius: 6px;
-        }
- 
-        button {
-            padding: 10px;
-            border-radius: 6px;
-            border: none;
-            background: #0077b6;
-            color: white;
-            cursor: pointer;
-        }
- 
-        button:hover {
-            background: #0096c7;
-        }
- 
-        pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
- 
-        a {
-            color: #4cc9f0;
-            text-decoration: underline;
-        }
- 
-        .copy-btn {
-            margin-top: 5px;
-            padding: 5px 10px;
-            font-size: 12px;
-        }
-    </style>
+button{
+  padding:8px;
+  background:#0078d7;
+  color:white;
+  border:none;
+}
+</style>
 </head>
  
 <body>
  
-<div class="chat-container">
-    <h2 style="text-align:center;">🖥️ NexAI IT</h2>
+<div class="app">
+<div class="header">🖥️ NexAI IT</div>
+<div id="chat" class="chat"></div>
  
-    <div id="chatBox" class="chat-box"></div>
+<div class="input">
+<textarea id="msg" rows="2" placeholder="Ask IT..."></textarea>
+<button onclick="send()">Send</button>
+</div>
  
-    <textarea id="inputBox" rows="2" placeholder="Ask IT..."></textarea>
-    <button onclick="sendMessage()">Send</button>
 </div>
  
 <script>
  
-let session_id = Math.random().toString();
+const chat=document.getElementById("chat");
+const msgInput=document.getElementById("msg");
+const session=Date.now();
  
-// FIX: define chatBox properly
-const chatBox = document.getElementById("chatBox");
  
-// LINK FORMATTER
-function formatText(text) {
-    return text.replace(/(https?:\/\/[^\s]+|portal\.azure\.com)/g, function(url) {
-        if (!url.startsWith("http")) {
-            url = "https://" + url;
-        }
-        return `<a href="${url}" target="_
-}
+// FIX: make links clickable
+function linkify(text){
+  return text.replace(/(https?:\/\/[^\s]+|portal\.azure\.com)/g,function(url){
+    if(!url.startsWith("http")){
+      url="https://"+url;
+    }
+    return `<a href="${url}" target="_blank" style="color:#4cc9f0n add(text,type){
  
-// USER MESSAGE
-function addUserMessage(text) {
-    const div = document.createElement("div");
-    div.className = "user-msg";
-    div.innerText = text;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
+  const d=document.createElement("div");
+  d.className="msg "+type;
  
-// BOT MESSAGE (fixed + copy button)
-function addBotMessage(text) {
+  if(type==="bot"){
  
-    const div = document.createElement("div");
-    div.className = "bot-msg";
- 
-    const content = document.createElement("div");
-    content.innerHTML = formatText(text);
+    // markdown + links
+    d.innerHTML=marked.parse(linkify(text));
  
     // copy button
-    const btn = document.createElement("button");
-    btn.className = "copy-btn";
-    btn.innerText = "Copy";
+    const btn=document.createElement("button");
+    btn.className="copy-btn";
+    btn.innerText="Copy";
  
-    btn.onclick = () => {
-        navigator.clipboard.writeText(text);
-        btn.innerText = "Copied!";
-        setTimeout(() => btn.innerText = "Copy", 1500);
+    btn.onclick=()=>{
+      navigator.clipboard.writeText(text);
+      btn.innerText="Copied!";
+      setTimeout(()=>btn.innerText="Copy",1500);
     };
  
-    div.appendChild(content);
-    div.appendChild(btn);
+    d.appendChild(btn);
  
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+  }else{
+    d.innerText=text;
+  }
+ 
+  chat.appendChild(d);
+  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
 }
  
-// FIXED SEND FUNCTION
-async function sendMessage() {
  
-    const input = document.getElementById("inputBox");
-    const message = input.value.trim();
+// SEND FUNCTION (safe)
+function send(){
  
-    if (!message) return;
+  const t=msgInput.value.trim();
+  if(!t)return;
  
-    addUserMessage(message);
+  add(t,"user");
  
-    input.value = "";
+  const thinking=document.createElement("div");
+  thinking.className="msg bot";
+  thinking.innerText="Thinking...";
+  chat.appendChild(thinking);
  
-    try {
-        const response = await fetch("/chat", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                message: message,
-                module: "it",
-                session_id: session_id
-            })
-        });
+  fetch("/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      message:t,
+      module:"it",
+      session_id:session
+    })
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    thinking.remove();
+    add(d.text,"bot");
+  })
+  .catch(()=>{
+    thinking.innerText="Error contacting server";
+  });
  
-        const data = await response.json();
- 
-        addBotMessage(data.text);
- 
-    } catch (error) {
-        addBotMessage("Error connecting to server");
-        console.error(error);
-    }
+  msgInput.value="";
 }
  
-// FIXED ENTER + SHIFT+ENTER
-document.getElementById("inputBox").addEventListener("keydown", function(e) {
  
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();  // prevent newline
-        sendMessage();       // send message
-    }
+// ENTER + SHIFT+ENTER FIXED
+msgInput.addEventListener("keydown",e=>{
  
-    // Shift+Enter = newline (do nothing)
+  if(e.key==="Enter" && !e.shiftKey){
+    e.preventDefault();
+    send();
+  }
+ 
+  // Shift+Enter → new line (default behavior)
 });
  
 </script>
