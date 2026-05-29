@@ -1,43 +1,39 @@
 import os
-import requests
 import threading
 import sqlite3
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime, timedelta
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
  
-# GOOGLE CALENDAR
+# Google Calendar
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
  
 # -------------------------
-# ENV
+# INIT
 # -------------------------
 load_dotenv()
+ 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
- 
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-EMAIL_USER = os.getenv("EMAIL_USER")
- 
-DB_PATH = os.path.join(os.getcwd(), "bookings.db")
  
 app = Flask(__name__)
 CORS(app)
  
+DB_PATH = os.path.join(os.getcwd(), "bookings.db")
 sessions = {}
  
 # -------------------------
-# DATABASE INIT
+# DATABASE
 # -------------------------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    c = conn.cursor()
  
-    cursor.execute("""
+    c.execute("""
     CREATE TABLE IF NOT EXISTS bookings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         booking_id TEXT,
@@ -62,27 +58,40 @@ init_db()
 def generate_booking_id():
     return f"NX-{datetime.now().strftime('%Y%m%d%H%M%S')}"
  
+def calculate_date(day):
+    today = datetime.now()
+ 
+    days_map = {
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4
+    }
+ 
+    target = days_map[day.lower()]
+    diff = (target - today.weekday()) % 7
+    if diff == 0:
+        diff = 7
+ 
+    return today + timedelta(days=diff)
+ 
 def is_slot_taken(day, time):
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    c = conn.cursor()
  
-    cursor.execute(
-        "SELECT 1 FROM bookings WHERE day = ? AND time = ?",
-        (day, time)
-    )
+    c.execute("SELECT 1 FROM bookings WHERE day=? AND time=?", (day, time))
+    result = c.fetchone()
  
-    result = cursor.fetchone()
     conn.close()
     return result is not None
  
 def save_booking(data):
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    c = conn.cursor()
  
-    cursor.execute("""
-    INSERT INTO bookings (
-        booking_id, name, vehicle, email, phone, day, time, date
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    c.execute("""
+    INSERT INTO bookings VALUES (NULL,?,?,?,?,?,?,?,?)
     """, (
         data["booking_id"],
         data["name"],
@@ -100,22 +109,22 @@ def save_booking(data):
 # -------------------------
 # EMAIL
 # -------------------------
-def send_email(to_email, name, vehicle, date, time):
+def send_email(email, name, vehicle, date, time):
     try:
         message = Mail(
-            from_email=EMAIL_USER,
-            to_emails=to_email,
-            subject='Vehicle Service Booking Confirmed',
+            from_email=os.getenv("EMAIL_USER"),
+            to_emails=email,
+            subject="Vehicle Booking Confirmed",
             html_content=f"""
             <h3>Hello {name}</h3>
-            <p>Your booking is confirmed</p>
-            <p><b>Vehicle:</b> {vehicle}</p>
-            <p><b>Date:</b> {date}</p>
-            <p><b>Time:</b> {time}</p>
+            <p>Booking confirmed</p>
+            <p>Vehicle: {vehicle}</p>
+            <p>Date: {date}</p>
+            <p>Time: {time}</p>
             """
         )
  
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
         sg.send(message)
  
     except Exception as e:
@@ -126,35 +135,27 @@ def send_email(to_email, name, vehicle, date, time):
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
-        SCOPES = ['https://www.googleapis.com/auth/calendar']
- 
         creds = service_account.Credentials.from_service_account_file(
             'service_account.json',
-            scopes=SCOPES
+            scopes=['https://www.googleapis.com/auth/calendar']
         )
  
         service = build('calendar', 'v3', credentials=creds)
  
-        today = datetime.now()
-        days_map = {"monday":0,"tuesday":1,"wednesday":2,"thursday":3,"friday":4}
+        date_obj = calculate_date(day)
  
-        target_day = days_map.get(day.lower())
-        days_ahead = (target_day - today.weekday()) % 7 or 7
- 
-        booking_date = today + timedelta(days=days_ahead)
- 
-        start_time = datetime.strptime(
-            f"{booking_date.date()} {time}",
+        start = datetime.strptime(
+            f"{date_obj.date()} {time}",
             "%Y-%m-%d %H:%M"
         )
  
-        end_time = start_time + timedelta(hours=1)
+        end = start + timedelta(hours=1)
  
         event = {
             'summary': 'Vehicle Booking',
             'description': f"{details}",
-            'start': {'dateTime': start_time.isoformat(), 'timeZone': 'Africa/Johannesburg'},
-            'end': {'dateTime': end_time.isoformat(), 'timeZone': 'Africa/Johannesburg'}
+            'start': {'dateTime': start.isoformat(), 'timeZone': 'Africa/Johannesburg'},
+            'end': {'dateTime': end.isoformat(), 'timeZone': 'Africa/Johannesburg'}
         }
  
         service.events().insert(
@@ -166,13 +167,17 @@ def create_calendar_event(day, time, details):
         print("Calendar error:", e)
  
 # -------------------------
-# VEHICLE MODULE (FIXED)
+# VEHICLE AI FIXED
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # START BOOKING FLOW
+    # EXIT FLOW IF USER CHANGES TOPIC
+    if session.get("state") and any(word in text for word in ["issue","problem","overheat","error"]):
+        session.clear()
+ 
+    # START BOOKING
     if "book" in text or "service" in text:
         session.clear()
  
@@ -187,24 +192,23 @@ def vehicle_ai(msg, session):
         session["state"] = "day"
         session["days"] = days
  
-        return {"text": "Select a day:\n" + "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))}
+        return {"text": "Select a day:\n" + "\n".join(days)}
  
-    # FLOW HANDLING
+    # FLOW
     if session.get("state") == "day" and msg.isdigit():
         i = int(msg)-1
         if i < len(session["days"]):
             session["selected_day"] = session["days"][i]
-            session["times"] = ["08:00","10:00","13:00","15:00"]
             session["state"] = "time"
+            session["times"] = ["08:00","10:00","13:00","15:00"]
  
-            return {"text": "Select time:\n" + "\n".join(f"{i+1}. {t}" for i,t in enumerate(session["times"]))}
+            return {"text": "Select time:\n" + "\n".join(session["times"])}
  
     if session.get("state") == "time" and msg.isdigit():
         i = int(msg)-1
-        if i < len(session["times"]):
-            session["selected_time"] = session["times"][i]
-            session["state"] = "name"
-            return {"text": "Enter name:"}
+        session["selected_time"] = session["times"][i]
+        session["state"] = "name"
+        return {"text": "Enter name:"}
  
     if session.get("state") == "name":
         session["name"] = msg
@@ -230,9 +234,8 @@ def vehicle_ai(msg, session):
             return {"text": "Slot already booked. Choose another time."}
  
         booking_id = generate_booking_id()
- 
-        date = datetime.now() + timedelta(days=1)
-        formatted_date = date.strftime("%d/%m/%Y")
+        date_obj = calculate_date(day)
+        formatted_date = date_obj.strftime('%d/%m/%Y')
  
         data = {
             "booking_id": booking_id,
@@ -263,34 +266,32 @@ Date: {formatted_date}
 Time: {time}
 """}
  
-    # FALLBACK AI (IMPORTANT FIX)
+    # AI FALLBACK FIX
     try:
-        response = client.chat.completions.create(
+        r = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role":"user","content":msg}],
             max_tokens=150
         )
-        return {"text": response.choices[0].message.content}
+        return {"text": r.choices[0].message.content}
     except Exception as e:
         print("AI error:", e)
-        return {"text": "Unable to process request right now."}
- 
+        return {"text": "Unable to respond right now."}
  
 # -------------------------
-# IT MODULE (FIXED)
+# IT MODULE FIXED
 # -------------------------
 def it_ai(msg):
     try:
-        response = client.chat.completions.create(
+        r = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role":"user","content":msg}],
             max_tokens=200
         )
-        return {"text": response.choices[0].message.content}
+        return {"text": r.choices[0].message.content}
     except Exception as e:
         print("IT error:", e)
         return {"text": "IT assistant unavailable."}
- 
  
 # -------------------------
 # ROUTES
@@ -306,6 +307,7 @@ def it():
 @app.post("/chat")
 def chat():
     data = request.get_json()
+ 
     msg = data.get("message","")
     module = data.get("module","vehicle")
     sid = data.get("session_id","default")
@@ -324,5 +326,5 @@ def chat():
 # RUN
 # -------------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT",10000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
