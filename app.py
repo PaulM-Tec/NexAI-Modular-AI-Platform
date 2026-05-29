@@ -17,7 +17,6 @@ from googleapiclient.discovery import build
 # INIT
 # -------------------------
 load_dotenv()
- 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 app = Flask(__name__)
@@ -31,9 +30,9 @@ sessions = {}
 # -------------------------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    cursor = conn.cursor()
  
-    c.execute("""
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS bookings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         booking_id TEXT,
@@ -78,19 +77,19 @@ def calculate_date(day):
  
 def is_slot_taken(day, time):
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    cursor = conn.cursor()
  
-    c.execute("SELECT 1 FROM bookings WHERE day=? AND time=?", (day, time))
-    result = c.fetchone()
+    cursor.execute("SELECT 1 FROM bookings WHERE day=? AND time=?", (day, time))
+    result = cursor.fetchone()
  
     conn.close()
     return result is not None
  
 def save_booking(data):
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    cursor = conn.cursor()
  
-    c.execute("""
+    cursor.execute("""
     INSERT INTO bookings VALUES (NULL,?,?,?,?,?,?,?,?)
     """, (
         data["booking_id"],
@@ -111,6 +110,8 @@ def save_booking(data):
 # -------------------------
 def send_email(email, name, vehicle, date, time):
     try:
+        sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
+ 
         message = Mail(
             from_email=os.getenv("EMAIL_USER"),
             to_emails=email,
@@ -124,14 +125,12 @@ def send_email(email, name, vehicle, date, time):
             """
         )
  
-        sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
         sg.send(message)
- 
     except Exception as e:
         print("Email error:", e)
  
 # -------------------------
-# CALENDAR
+# CALENDAR (UNCHANGED LOGIC)
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
@@ -167,14 +166,14 @@ def create_calendar_event(day, time, details):
         print("Calendar error:", e)
  
 # -------------------------
-# VEHICLE AI FIXED
+# VEHICLE MODULE (FIXED PROPERLY)
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # EXIT FLOW IF USER CHANGES TOPIC
-    if session.get("state") and any(word in text for word in ["issue","problem","overheat","error"]):
+    # EXIT BOOKING FLOW if user changes topic
+    if session.get("state") and any(w in text for w in ["issue", "problem", "overheat", "error"]):
         session.clear()
  
     # START BOOKING
@@ -182,34 +181,62 @@ def vehicle_ai(msg, session):
         session.clear()
  
         days = []
-        now = datetime.now()
+        today = datetime.now()
  
         while len(days) < 5:
-            now += timedelta(days=1)
-            if now.weekday() < 5:
-                days.append(now.strftime("%A"))
+            today += timedelta(days=1)
+            if today.weekday() < 5:
+                days.append(today.strftime("%A"))
  
         session["state"] = "day"
         session["days"] = days
  
-        return {"text": "Select a day:\n" + "\n".join(days)}
+        return {
+            "text": "Select a day:\n" + "\n".join(f"{i+1}. {d}" for i, d in enumerate(days))
+        }
  
-    # FLOW
-    if session.get("state") == "day" and msg.isdigit():
-        i = int(msg)-1
-        if i < len(session["days"]):
-            session["selected_day"] = session["days"][i]
+    # DAY SELECTION (FIXED)
+    if session.get("state") == "day":
+        days = session.get("days", [])
+ 
+        selected = None
+ 
+        if msg.isdigit():
+            i = int(msg) - 1
+            if 0 <= i < len(days):
+                selected = days[i]
+        else:
+            selected = next((d for d in days if d.lower() == text), None)
+ 
+        if selected:
+            session["selected_day"] = selected
             session["state"] = "time"
-            session["times"] = ["08:00","10:00","13:00","15:00"]
+            session["times"] = ["08:00", "10:00", "13:00", "15:00"]
  
-            return {"text": "Select time:\n" + "\n".join(session["times"])}
+            return {
+                "text": "Select time:\n" +
+                "\n".join(f"{i+1}. {t}" for i, t in enumerate(session["times"]))
+            }
  
-    if session.get("state") == "time" and msg.isdigit():
-        i = int(msg)-1
-        session["selected_time"] = session["times"][i]
-        session["state"] = "name"
-        return {"text": "Enter name:"}
+    # TIME SELECTION (FIXED)
+    if session.get("state") == "time":
  
+        times = session.get("times", [])
+        selected = None
+ 
+        if msg.isdigit():
+            i = int(msg) - 1
+            if 0 <= i < len(times):
+                selected = times[i]
+        else:
+            selected = next((t for t in times if t == msg), None)
+ 
+        if selected:
+            session["selected_time"] = selected
+            session["state"] = "name"
+            return {"text": "Enter name:"}
+ 
+    # FLOW CONTINUES
     if session.get("state") == "name":
         session["name"] = msg
         session["state"] = "vehicle"
@@ -266,11 +293,11 @@ Date: {formatted_date}
 Time: {time}
 """}
  
-    # AI FALLBACK FIX
+    # FALLBACK AI (VERY IMPORTANT)
     try:
         r = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role":"user","content":msg}],
+            messages=[{"role": "user", "content": msg}],
             max_tokens=150
         )
         return {"text": r.choices[0].message.content}
@@ -279,19 +306,19 @@ Time: {time}
         return {"text": "Unable to respond right now."}
  
 # -------------------------
-# IT MODULE FIXED
+# IT MODULE SAFE
 # -------------------------
 def it_ai(msg):
     try:
         r = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role":"user","content":msg}],
+            messages=[{"role": "user", "content": msg}],
             max_tokens=200
         )
         return {"text": r.choices[0].message.content}
     except Exception as e:
         print("IT error:", e)
-        return {"text": "IT assistant unavailable."}
+        return {"text": "IT assistant temporarily unavailable."}
  
 # -------------------------
 # ROUTES
@@ -308,9 +335,9 @@ def it():
 def chat():
     data = request.get_json()
  
-    msg = data.get("message","")
-    module = data.get("module","vehicle")
-    sid = data.get("session_id","default")
+    msg = data.get("message", "")
+    module = data.get("module", "vehicle")
+    sid = data.get("session_id", "default")
  
     if sid not in sessions:
         sessions[sid] = {}
