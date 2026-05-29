@@ -103,7 +103,7 @@ def save_booking(data):
 # -------------------------
 def send_to_slack(message):
     try:
-        webhook = os.getenv("SLACK_WEBHOOK")
+        webhook = os.getenv("SLACK_WEBHOOK_URL")
  
         if not webhook:
             print("Slack webhook missing")
