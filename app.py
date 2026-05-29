@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
  
-# Google Calendar
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
  
@@ -79,10 +78,14 @@ def is_slot_taken(day, time):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
  
-    cursor.execute("SELECT 1 FROM bookings WHERE day=? AND time=?", (day, time))
-    result = cursor.fetchone()
+    cursor.execute(
+        "SELECT 1 FROM bookings WHERE day=? AND time=?",
+        (day, time)
+    )
  
+    result = cursor.fetchone()
     conn.close()
+ 
     return result is not None
  
 def save_booking(data):
@@ -126,11 +129,12 @@ def send_email(email, name, vehicle, date, time):
         )
  
         sg.send(message)
+ 
     except Exception as e:
         print("Email error:", e)
  
 # -------------------------
-# CALENDAR (UNCHANGED LOGIC)
+# CALENDAR
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
@@ -166,77 +170,54 @@ def create_calendar_event(day, time, details):
         print("Calendar error:", e)
  
 # -------------------------
-# VEHICLE MODULE (FIXED PROPERLY)
+# VEHICLE MODULE CLEAN FLOW
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
- 
-    # EXIT BOOKING FLOW if user changes topic
-    if session.get("state") and any(w in text for w in ["issue", "problem", "overheat", "error"]):
-        session.clear()
  
     # START BOOKING
     if "book" in text or "service" in text:
         session.clear()
  
         days = []
-        today = datetime.now()
+        now = datetime.now()
  
         while len(days) < 5:
-            today += timedelta(days=1)
-            if today.weekday() < 5:
-                days.append(today.strftime("%A"))
+            now += timedelta(days=1)
+            if now.weekday() < 5:
+                days.append(now.strftime("%A"))
  
         session["state"] = "day"
         session["days"] = days
  
         return {
-            "text": "Select a day:\n" + "\n".join(f"{i+1}. {d}" for i, d in enumerate(days))
+            "text": "Select a day:\n" + "\n".join(
+                f"{i+1}. {d}" for i, d in enumerate(days)
+            )
         }
  
-    # DAY SELECTION (FIXED)
-    if session.get("state") == "day":
-        days = session.get("days", [])
- 
-        selected = None
- 
-        if msg.isdigit():
-            i = int(msg) - 1
-            if 0 <= i < len(days):
-                selected = days[i]
-        else:
-            selected = next((d for d in days if d.lower() == text), None)
- 
-        if selected:
-            session["selected_day"] = selected
+    # FLOW ONLY USES NUMBERS
+    if session.get("state") == "day" and msg.isdigit():
+        idx = int(msg) - 1
+        if 0 <= idx < len(session["days"]):
+            session["selected_day"] = session["days"][idx]
             session["state"] = "time"
             session["times"] = ["08:00", "10:00", "13:00", "15:00"]
  
             return {
-                "text": "Select time:\n" +
-                "\n".join(f"{i+1}. {t}" for i, t in enumerate(session["times"]))
+                "text": "Select time:\n" + "\n".join(
+                    f"{i+1}. {t}" for i, t in enumerate(session["times"])
+                )
             }
  
-    # TIME SELECTION (FIXED)
-    if session.get("state") == "time":
- 
-        times = session.get("times", [])
-        selected = None
- 
-        if msg.isdigit():
-            i = int(msg) - 1
-            if 0 <= i < len(times):
-                selected = times[i]
-        else:
-            selected = next((t for t in times if t == msg), None)
- 
-        if selected:
-            session["selected_time"] = selected
+    if session.get("state") == "time" and msg.isdigit():
+        idx = int(msg) - 1
+        if 0 <= idx < len(session["times"]):
+            session["selected_time"] = session["times"][idx]
             session["state"] = "name"
             return {"text": "Enter name:"}
  
-    # FLOW CONTINUES
     if session.get("state") == "name":
         session["name"] = msg
         session["state"] = "vehicle"
@@ -293,7 +274,7 @@ Date: {formatted_date}
 Time: {time}
 """}
  
-    # FALLBACK AI (VERY IMPORTANT)
+    # AI ONLY OUTSIDE BOOKING FLOW
     try:
         r = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -301,12 +282,11 @@ Time: {time}
             max_tokens=150
         )
         return {"text": r.choices[0].message.content}
-    except Exception as e:
-        print("AI error:", e)
-        return {"text": "Unable to respond right now."}
+    except:
+        return {"text": "AI unavailable"}
  
 # -------------------------
-# IT MODULE SAFE
+# IT MODULE
 # -------------------------
 def it_ai(msg):
     try:
@@ -316,9 +296,8 @@ def it_ai(msg):
             max_tokens=200
         )
         return {"text": r.choices[0].message.content}
-    except Exception as e:
-        print("IT error:", e)
-        return {"text": "IT assistant temporarily unavailable."}
+    except:
+        return {"text": "IT assistant unavailable"}
  
 # -------------------------
 # ROUTES
