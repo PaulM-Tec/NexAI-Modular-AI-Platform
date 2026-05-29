@@ -1,6 +1,7 @@
 import os
 import threading
 import sqlite3
+import requests  # ADDED FOR SLACK
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -8,7 +9,6 @@ from openai import OpenAI
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
- 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
  
@@ -30,7 +30,6 @@ sessions = {}
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
- 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS bookings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +43,6 @@ def init_db():
         date TEXT
     )
     """)
- 
     conn.commit()
     conn.close()
  
@@ -58,7 +56,6 @@ def generate_booking_id():
  
 def calculate_date(day):
     today = datetime.now()
- 
     days_map = {
         "monday": 0,
         "tuesday": 1,
@@ -66,32 +63,26 @@ def calculate_date(day):
         "thursday": 3,
         "friday": 4
     }
- 
     target = days_map[day.lower()]
     diff = (target - today.weekday()) % 7
     if diff == 0:
         diff = 7
- 
     return today + timedelta(days=diff)
  
 def is_slot_taken(day, time):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
- 
     cursor.execute(
         "SELECT 1 FROM bookings WHERE day=? AND time=?",
         (day, time)
     )
- 
     result = cursor.fetchone()
     conn.close()
- 
     return result is not None
  
 def save_booking(data):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
- 
     cursor.execute("""
     INSERT INTO bookings VALUES (NULL,?,?,?,?,?,?,?,?)
     """, (
@@ -104,52 +95,68 @@ def save_booking(data):
         data["time"],
         data["date"]
     ))
- 
     conn.commit()
     conn.close()
  
 # -------------------------
-# EMAIL (FIXED)
+# SLACK (RESTORED ONLY)
+# -------------------------
+def send_to_slack(message):
+    try:
+        webhook = os.getenv("SLACK_WEBHOOK")
+ 
+        if not webhook:
+            print("Slack webhook missing")
+            return
+ 
+        response = requests.post(
+            webhook,
+            json={"text": message},
+            timeout=5
+        )
+ 
+        if response.status_code == 200:
+            print("Sent to Slack")
+        else:
+            print("Slack error:", response.text)
+ 
+    except Exception as e:
+        print("Slack exception:", str(e))
+ 
+# -------------------------
+# EMAIL (UNCHANGED)
 # -------------------------
 def send_email(email, name, vehicle, date, time):
     try:
         sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
- 
         message = Mail(
             from_email=os.getenv("EMAIL_USER"),
             to_emails=email,
             subject="Vehicle Booking Confirmed",
             html_content=f"""
-            <h3>Hello {name}</h3>
-            <p>Your booking has been confirmed</p>
- 
-            <p><b>Vehicle:</b> {vehicle}</p>
-            <p><b>Date:</b> {date}</p>
-            <p><b>Time:</b> {time}</p>
- 
-            <p>Thank you for using NexAI</p>
+<h3>Hello {name}</h3>
+<p>Your booking has been confirmed</p>
+<p><b>Vehicle:</b> {vehicle}</p>
+<p><b>Date:</b> {date}</p>
+<p><b>Time:</b> {time}</p>
+<p>Thank you for using NexAI</p>
             """
         )
- 
         sg.send(message)
- 
     except Exception as e:
         print("Email error:", e)
  
 # -------------------------
-# CALENDAR (FIXED DATE)
+# CALENDAR (UNCHANGED)
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
         print("Starting calendar creation")
- 
         creds = service_account.Credentials.from_service_account_file(
             'service_account.json',
             scopes=['https://www.googleapis.com/auth/calendar']
         )
- 
         service = build('calendar', 'v3', credentials=creds)
- 
         date_obj = calculate_date(day)
  
         start = datetime.strptime(
@@ -159,19 +166,15 @@ def create_calendar_event(day, time, details):
  
         end = start + timedelta(hours=1)
  
-        print("Event start:", start)
- 
         event = {
             'summary': 'Vehicle Booking',
             'description': f"""
 NexAI Booking
- 
 Booking ID: {details['booking_id']}
 Name: {details['name']}
 Vehicle: {details['vehicle']}
 Email: {details['email']}
 Phone: {details['phone']}
- 
 Day: {details['day']}
 Time: {details['time']}
 """,
@@ -199,10 +202,9 @@ Time: {details['time']}
         print("Calendar error FULL:", str(e))
  
 # -------------------------
-# VEHICLE MODULE
+# VEHICLE MODULE (UNCHANGED)
 # -------------------------
 def vehicle_ai(msg, session):
- 
     text = msg.lower()
  
     if "book" in text or "service" in text:
@@ -261,13 +263,12 @@ def vehicle_ai(msg, session):
         return {"text": "Enter phone:"}
  
     if session.get("state") == "phone":
- 
         day = session["selected_day"]
         time = session["selected_time"]
  
         if is_slot_taken(day, time):
-    	    session.clear()  # IMPORTANT FIX
-    	    return {"text": "Slot already booked. Please start a new booking or ask a question."}
+            session.clear()
+            return {"text": "Slot already booked. Please start a new booking or ask a question."}
  
         booking_id = generate_booking_id()
         date_obj = calculate_date(day)
@@ -295,19 +296,15 @@ def vehicle_ai(msg, session):
         session.clear()
  
         return {"text": f"""Booking Confirmed
- 
 Booking ID: {booking_id}
- 
 Name: {data['name']}
 Vehicle: {data['vehicle']}
 Email: {data['email']}
 Phone: {data['phone']}
- 
 Date: {formatted_date}
 Time: {time}
 """}
  
-    # AI fallback (unchanged)
     try:
         r = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -319,7 +316,7 @@ Time: {time}
         return {"text": "AI unavailable"}
  
 # -------------------------
-# IT MODULE
+# IT MODULE (SLACK ADDED)
 # -------------------------
 def it_ai(msg):
     try:
@@ -328,7 +325,22 @@ def it_ai(msg):
             messages=[{"role": "user", "content": msg}],
             max_tokens=200
         )
-        return {"text": r.choices[0].message.content}
+ 
+        reply = r.choices[0].message.content
+ 
+        # SEND TO SLACK
+        send_to_slack(f"""
+🖥️ NexAI IT Assistant
+ 
+Query:
+{msg}
+ 
+Response:
+{reply}
+""")
+ 
+        return {"text": reply}
+ 
     except:
         return {"text": "IT assistant unavailable"}
  
