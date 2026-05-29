@@ -261,7 +261,8 @@ def vehicle_ai(msg, session):
         time = session["selected_time"]
  
         if is_slot_taken(day, time):
-            return {"text": "Slot already booked. Choose another time."}
+    	    session.clear()  # IMPORTANT FIX
+    	    return {"text": "Slot already booked. Please start a new booking or ask a question."}
  
         booking_id = generate_booking_id()
         date_obj = calculate_date(day)
