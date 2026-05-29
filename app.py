@@ -108,7 +108,7 @@ def is_slot_taken(day, time):
     return result is not None
  
 # -------------------------
-# SEND EMAIL
+# SEND EMAIL (SendGrid)
 # -------------------------
 def send_email(to_email, name, vehicle, date, time):
     try:
@@ -148,75 +148,25 @@ def send_to_slack(message):
         print("Slack error:", e)
  
 # -------------------------
-# UPGRADED IT MODULE
+# IT MODULE (RESTORED)
 # -------------------------
 def it_ai(msg):
- 
-    text = msg.lower()
- 
-    # SIMPLE INTENT DETECTION
-    if any(word in text for word in ["error", "not working", "issue", "fail", "cannot"]):
-        mode = "troubleshoot"
-    elif any(word in text for word in ["how to", "add", "create", "setup", "configure"]):
-        mode = "task"
-    else:
-        mode = "general"
- 
-    # DIFFERENT PROMPTS
-    if mode == "troubleshoot":
-        system_prompt = """
-You are an Enterprise IT Assistant.
- 
-Structure your response as:
- 
-Problem Analysis
-Possible Causes
-Recommended Actions
-Script / Commands
- 
-Be concise and practical.
-"""
- 
-    elif mode == "task":
-        system_prompt = """
-You are an Enterprise IT Assistant.
- 
-The user is asking HOW TO perform a task.
- 
-Structure your response as:
- 
-Task Overview
-Steps (clear step-by-step)
-Script / Commands
-Notes (optional)
- 
-Do NOT frame it as a problem.
-"""
- 
-    else:
-        system_prompt = """
-You are an Enterprise IT Assistant.
- 
-Provide a clear, concise, technical answer.
-Include scripts if useful.
-"""
  
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": "Enterprise IT Admin Assistant."},
             {"role": "user", "content": msg}
         ],
-        max_tokens=500
+        max_tokens=140
     )
  
     reply = response.choices[0].message.content
  
     send_to_slack(f"""
-🖥️ NexAI IT Assistant
+🖥️ NexAI IT Alert
 Query:
 {msg}
- 
 Response:
 {reply}
 """)
@@ -227,6 +177,7 @@ Response:
 # GOOGLE CALENDAR
 # -------------------------
 def create_calendar_event(day, time, details):
+ 
     try:
         SCOPES = ['https://www.googleapis.com/auth/calendar']
  
@@ -282,7 +233,7 @@ Time: {time}
         print("Calendar error:", e)
  
 # -------------------------
-# VEHICLE MODULE (UNCHANGED)
+# VEHICLE MODULE
 # -------------------------
 def vehicle_ai(msg, session):
  
