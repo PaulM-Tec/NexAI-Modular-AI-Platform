@@ -141,6 +141,8 @@ def send_email(email, name, vehicle, date, time):
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
+        print("Starting calendar creation")
+ 
         creds = service_account.Credentials.from_service_account_file(
             'service_account.json',
             scopes=['https://www.googleapis.com/auth/calendar']
@@ -157,9 +159,17 @@ def create_calendar_event(day, time, details):
  
         end = start + timedelta(hours=1)
  
+        print("Event start:", start)
+ 
         event = {
             'summary': 'Vehicle Booking',
-            'description': f"{details}",
+            'description': f"""
+Booking ID: {details['booking_id']}
+Name: {details['name']}
+Vehicle: {details['vehicle']}
+Email: {details['email']}
+Phone: {details['phone']}
+""",
             'start': {
                 'dateTime': start.isoformat(),
                 'timeZone': 'Africa/Johannesburg'
@@ -170,13 +180,18 @@ def create_calendar_event(day, time, details):
             }
         }
  
+        calendar_id = os.getenv("CALENDAR_ID")
+        print("Using calendar:", calendar_id)
+ 
         service.events().insert(
-            calendarId=os.getenv("CALENDAR_ID"),
+            calendarId=calendar_id,
             body=event
         ).execute()
  
+        print("Calendar event CREATED SUCCESSFULLY")
+ 
     except Exception as e:
-        print("Calendar error:", e)
+        print("Calendar error FULL:", str(e))
  
 # -------------------------
 # VEHICLE MODULE
