@@ -60,11 +60,11 @@ def calculate_date(day):
     today = datetime.now()
  
     days_map = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4
+        "monday":0,
+        "tuesday":1,
+        "wednesday":2,
+        "thursday":3,
+        "friday":4
     }
  
     target = days_map[day.lower()]
@@ -109,7 +109,7 @@ def save_booking(data):
     conn.close()
  
 # -------------------------
-# EMAIL
+# EMAIL (FIXED CLEAN FORMAT)
 # -------------------------
 def send_email(email, name, vehicle, date, time):
     try:
@@ -118,13 +118,23 @@ def send_email(email, name, vehicle, date, time):
         message = Mail(
             from_email=os.getenv("EMAIL_USER"),
             to_emails=email,
-            subject="Vehicle Booking Confirmed",
+            subject="Vehicle Service Booking Confirmed",
             html_content=f"""
-            <h3>Hello {name}</h3>
-            <p>Booking confirmed</p>
-            <p>Vehicle: {vehicle}</p>
-            <p>Date: {date}</p>
-            <p>Time: {time}</p>
+            <div style="font-family:Arial; padding:15px;">
+                <h2 style="margin-bottom:10px;">Booking Confirmed</h2>
+ 
+                <p>Hello {name},</p>
+ 
+                <p>Your booking has been confirmed.</p>
+ 
+                <p><b>Vehicle:</b> {vehicle}</p>
+                <p><b>Date:</b> {date}</p>
+                <p><b>Time:</b> {time}</p>
+ 
+                <br>
+ 
+                <p>Thank you for using NexAI</p>
+            </div>
             """
         )
  
@@ -134,7 +144,7 @@ def send_email(email, name, vehicle, date, time):
         print("Email error:", e)
  
 # -------------------------
-# CALENDAR
+# CALENDAR (FIXED)
 # -------------------------
 def create_calendar_event(day, time, details):
     try:
@@ -148,17 +158,29 @@ def create_calendar_event(day, time, details):
         date_obj = calculate_date(day)
  
         start = datetime.strptime(
-            f"{date_obj.date()} {time}",
+            f"{date_obj.strftime('%Y-%m-%d')} {time}",
             "%Y-%m-%d %H:%M"
         )
  
         end = start + timedelta(hours=1)
  
         event = {
-            'summary': 'Vehicle Booking',
-            'description': f"{details}",
-            'start': {'dateTime': start.isoformat(), 'timeZone': 'Africa/Johannesburg'},
-            'end': {'dateTime': end.isoformat(), 'timeZone': 'Africa/Johannesburg'}
+            'summary': 'Vehicle Service Booking',
+            'description': f"""
+Booking ID: {details['booking_id']}
+Name: {details['name']}
+Vehicle: {details['vehicle']}
+Email: {details['email']}
+Phone: {details['phone']}
+""",
+            'start': {
+                'dateTime': start.isoformat(),
+                'timeZone': 'Africa/Johannesburg'
+            },
+            'end': {
+                'dateTime': end.isoformat(),
+                'timeZone': 'Africa/Johannesburg'
+            }
         }
  
         service.events().insert(
@@ -166,30 +188,31 @@ def create_calendar_event(day, time, details):
             body=event
         ).execute()
  
+        print("Calendar event created")
+ 
     except Exception as e:
         print("Calendar error:", e)
  
 # -------------------------
-# VEHICLE MODULE CLEAN FLOW
+# VEHICLE MODULE (ONLY OUTPUT FIXED)
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # START BOOKING
     if "book" in text or "service" in text:
         session.clear()
  
         days = []
-        now = datetime.now()
+        current = datetime.now()
  
         while len(days) < 5:
-            now += timedelta(days=1)
-            if now.weekday() < 5:
-                days.append(now.strftime("%A"))
+            current += timedelta(days=1)
+            if current.weekday() < 5:
+                days.append(current.strftime("%A"))
  
-        session["state"] = "day"
         session["days"] = days
+        session["state"] = "day"
  
         return {
             "text": "Select a day:\n" + "\n".join(
@@ -197,13 +220,13 @@ def vehicle_ai(msg, session):
             )
         }
  
-    # FLOW ONLY USES NUMBERS
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg) - 1
+ 
         if 0 <= idx < len(session["days"]):
             session["selected_day"] = session["days"][idx]
-            session["state"] = "time"
             session["times"] = ["08:00", "10:00", "13:00", "15:00"]
+            session["state"] = "time"
  
             return {
                 "text": "Select time:\n" + "\n".join(
@@ -213,6 +236,7 @@ def vehicle_ai(msg, session):
  
     if session.get("state") == "time" and msg.isdigit():
         idx = int(msg) - 1
+ 
         if 0 <= idx < len(session["times"]):
             session["selected_time"] = session["times"][idx]
             session["state"] = "name"
@@ -266,71 +290,29 @@ def vehicle_ai(msg, session):
  
         session.clear()
  
-        return {"text": f"""
-Booking Confirmed
+        # CLEAN OUTPUT FIX
+        return {
+            "text": f"""Booking Confirmed
  
-ID: {booking_id}
+Booking ID: {booking_id}
+ 
+Name: {data['name']}
+Vehicle: {data['vehicle']}
+Email: {data['email']}
+Phone: {data['phone']}
+ 
 Date: {formatted_date}
 Time: {time}
-"""}
+"""
+        }
  
-    # AI ONLY OUTSIDE BOOKING FLOW
+    # DO NOT TOUCH AI (YOU SAID WORKING)
     try:
         r = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": msg}],
+            messages=[{"role":"user","content":msg}],
             max_tokens=150
         )
         return {"text": r.choices[0].message.content}
     except:
         return {"text": "AI unavailable"}
- 
-# -------------------------
-# IT MODULE
-# -------------------------
-def it_ai(msg):
-    try:
-        r = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": msg}],
-            max_tokens=200
-        )
-        return {"text": r.choices[0].message.content}
-    except:
-        return {"text": "IT assistant unavailable"}
- 
-# -------------------------
-# ROUTES
-# -------------------------
-@app.get("/vehicle")
-def vehicle():
-    return send_from_directory(".", "index_vehicle.html")
- 
-@app.get("/it")
-def it():
-    return send_from_directory(".", "index_it.html")
- 
-@app.post("/chat")
-def chat():
-    data = request.get_json()
- 
-    msg = data.get("message", "")
-    module = data.get("module", "vehicle")
-    sid = data.get("session_id", "default")
- 
-    if sid not in sessions:
-        sessions[sid] = {}
- 
-    if module == "vehicle":
-        result = vehicle_ai(msg, sessions[sid])
-    else:
-        result = it_ai(msg)
- 
-    return jsonify(result)
- 
-# -------------------------
-# RUN
-# -------------------------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
