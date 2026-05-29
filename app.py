@@ -164,11 +164,16 @@ def create_calendar_event(day, time, details):
         event = {
             'summary': 'Vehicle Booking',
             'description': f"""
+NexAI Booking
+ 
 Booking ID: {details['booking_id']}
 Name: {details['name']}
 Vehicle: {details['vehicle']}
 Email: {details['email']}
 Phone: {details['phone']}
+ 
+Day: {details['day']}
+Time: {details['time']}
 """,
             'start': {
                 'dateTime': start.isoformat(),
