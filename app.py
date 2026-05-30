@@ -376,6 +376,10 @@ def chat():
 @app.route('/<path:filename>')
 def serve_static(filename):
     return send_from_directory('.', filename)
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory('.', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
  
 # -------------------------
 # RUN
