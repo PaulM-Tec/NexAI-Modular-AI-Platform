@@ -372,6 +372,10 @@ def chat():
         result = it_ai(msg)
  
     return jsonify(result)
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('.', filename)
  
 # -------------------------
 # RUN
