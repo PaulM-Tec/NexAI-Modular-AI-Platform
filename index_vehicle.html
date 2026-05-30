@@ -3,6 +3,7 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
  
 <style>
 body{
@@ -13,16 +14,16 @@ body{
  
 /* APP CONTAINER */
 .app{
-  width:95%;
+  width:100%;
   max-width:420px;
-  height:78vh;
-  margin:20px auto;
+  height:100vh;              /* FULL HEIGHT FIX */
+  margin:0 auto;             /* REMOVE TOP GAP */
   display:flex;
   flex-direction:column;
   background:#252542;
-  border-radius:16px;
-  box-shadow:0 8px 30px rgba(0,0,0,0.5);
-  overflow:hidden;
+  border-radius:0;           /* EDGE-TO-EDGE FOR MOBILE */
+  box-shadow:none;           /* CLEAN MOBILE LOOK */
+  overflow: hidden;
 }
  
 /* HEADER */
