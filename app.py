@@ -146,7 +146,22 @@ def create_calendar_event(day, time, details):
             calendarId=os.getenv("CALENDAR_ID"),
             body={
                 'summary': 'Vehicle Booking',
-                'description': f"NexAI Booking ({details['booking_id']})",
+                'description': f"""
+		Booking Confirmed
+ 
+		Booking ID: {details['booking_id']}
+ 
+		Name: {details['name']}
+		Vehicle: {details['vehicle']}
+		Email: {details['email']}
+		Phone: {details['phone']}
+ 
+		Day: {details['day']}
+		Date: {details['date']}
+		Time: {details['time']}
+ 
+		Thank you for using NexAI Ops
+		""",
                 'start': {'dateTime': start.isoformat(), 'timeZone': 'Africa/Johannesburg'},
                 'end': {'dateTime': end.isoformat(), 'timeZone': 'Africa/Johannesburg'}
             }
