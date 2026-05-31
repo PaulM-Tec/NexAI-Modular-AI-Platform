@@ -219,7 +219,7 @@ def vehicle_ai(msg, session):
  
         if is_slot_taken(day, time):
             session.clear()
-            return {"text": "Slot already booked."}
+            return {"text": "⚠️ The selected time slot is already booked.\n\nPlease start a new booking and choose a different day or time."}
  
         booking_id = generate_booking_id()
         date_obj = calculate_date(day)
@@ -246,7 +246,21 @@ def vehicle_ai(msg, session):
  
         session.clear()
  
-        return {"text": f"Booking Confirmed\nID: {booking_id}\nDate: {formatted_date} {time}"}
+        return {"text": f"""Booking Confirmed
+ 
+	Booking ID: {booking_id}
+ 
+	Name: {data['name']}
+	Vehicle: {data['vehicle']}
+	Email: {data['email']}
+	Phone: {data['phone']}
+ 
+	Day: {day}
+	Date: {formatted_date}
+	Time: {time}
+ 
+	Thank you for using NexAI Ops
+	"""}
  
     # VEHICLE AI FALLBACK
     try:
