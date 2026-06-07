@@ -11,7 +11,7 @@
  
 <style>
  
-/* GLOBAL */
+/* GLOBAL (FIXED) */
 html, body {
   margin:0;
   height:100%;
@@ -36,7 +36,7 @@ html, body {
   height:calc(100% - 24px);
 }
  
-/* APP */
+/* APP (DESKTOP PERFECT — DO NOT TOUCH) */
 .app{
   width:100%;
   max-width:420px;
@@ -56,10 +56,9 @@ html, body {
   background:linear-gradient(90deg,#0078d7,#00c6ff);
   color:white;
   font-weight:bold;
-  flex-shrink:0;
 }
  
-/* CHAT */
+/* CHAT (VERY IMPORTANT FIX) */
 .chat{
   flex:1;
   overflow-y:auto;
@@ -67,6 +66,8 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:10px;
+ 
+  min-height:0; /* CRITICAL FIX */
 }
  
 /* MESSAGE */
@@ -89,52 +90,13 @@ html, body {
   align-self:flex-start;
 }
  
-/* IMAGES */
-.msg img{
-  max-width:100%;
-  border-radius:10px;
-}
- 
-/* CODE */
-.code-block{
-  background:#16172b;
-  border-radius:10px;
-  overflow:hidden;
-}
- 
-.code-header{
-  display:flex;
-  justify-content:space-between;
-  padding:6px 10px;
-  background:#2c2f48;
-  font-size:12px;
-}
- 
-pre{
-  margin:0;
-  padding:10px;
-  overflow-x:auto;
-  white-space:pre-wrap;
-}
- 
-/* COPY */
-.copy-btn{
-  background:#0078d7;
-  border:none;
-  color:white;
-  padding:4px 8px;
-  border-radius:5px;
-  cursor:pointer;
-}
- 
-/* INPUT */
+/* INPUT (FIXED STRUCTURE) */
 .input{
   display:flex;
-  align-items:center;   /* FIX alignment */
+  align-items:center;
   gap:8px;
   padding:10px;
   background:#111;
-  flex-shrink:0;
 }
  
 /* TEXTAREA */
@@ -162,12 +124,12 @@ button{
   flex-shrink:0;
 }
  
-/* PERFECT CIRCLE FIX */
+/* PERFECT CIRCLE */
 .upload-btn{
-  width:40px;
-  height:40px;      /* critical fix */
-  min-width:40px;
-  min-height:40px;
+  width:42px;
+  height:42px;
+  min-width:42px;
+  min-height:42px;
   border-radius:50%;
   display:flex;
   align-items:center;
@@ -176,13 +138,8 @@ button{
   padding:0;
 }
  
-/* MOBILE FIX ONLY */
-@media(max-width:600px){
- 
-  html, body{
-    height:100%;
-    overflow:hidden;
-  }
+/* MOBILE FIX */
+@media (max-width:600px){
  
   .wrapper{
     height:100%;
@@ -190,21 +147,20 @@ button{
   }
  
   .app{
-    height:100vh;            /* FULL viewport */
+    height:100%;
     max-width:100%;
     border-radius:0;
     box-shadow:none;
   }
  
-  .chat{
-    flex:1;
-    overflow-y:auto;
+  body{
+    display:flex;
+    flex-direction:column;
   }
  
 }
  
 </style>
- 
 </head>
  
 <body>
@@ -247,13 +203,13 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
 };
  
-/* AUTO GROW */
+/* AUTO EXPAND */
 msgInput.addEventListener("input", () => {
   msgInput.style.height = "auto";
   msgInput.style.height = msgInput.scrollHeight + "px";
 });
  
-/* ADD */
+/* ADD MESSAGE */
 function add(text, type){
  
   if(type === "user"){
@@ -360,7 +316,7 @@ document.getElementById("fileInput").addEventListener("change",e=>{
   reader.readAsDataURL(file);
 });
  
-/* PASTE KEEP */
+/* PASTE */
 document.addEventListener("paste",e=>{
   for(let item of e.clipboardData.items){
     if(item.type.includes("image")){
