@@ -1,17 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
- 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexAI • Assist</title>
  
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
- 
 <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
  
 <style>
  
-/* GLOBAL (FIXED) */
 html, body {
   margin:0;
   height:100%;
@@ -19,7 +16,6 @@ html, body {
   font-family:Arial, sans-serif;
 }
  
-/* NOTICE */
 .notice{
   text-align:center;
   font-size:12px;
@@ -28,7 +24,6 @@ html, body {
   background:#111;
 }
  
-/* WRAPPER */
 .wrapper{
   display:flex;
   justify-content:center;
@@ -36,7 +31,6 @@ html, body {
   height:calc(100% - 24px);
 }
  
-/* APP (DESKTOP PERFECT — DO NOT TOUCH) */
 .app{
   width:100%;
   max-width:420px;
@@ -49,7 +43,6 @@ html, body {
   box-shadow:0 8px 30px rgba(0,0,0,0.6);
 }
  
-/* HEADER */
 .header{
   padding:14px;
   text-align:center;
@@ -58,7 +51,6 @@ html, body {
   font-weight:bold;
 }
  
-/* CHAT (VERY IMPORTANT FIX) */
 .chat{
   flex:1;
   overflow-y:auto;
@@ -66,16 +58,15 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:10px;
- 
-  min-height:0; /* CRITICAL FIX */
+  min-height:0;
 }
  
-/* MESSAGE */
 .msg{
   max-width:80%;
   border-radius:16px;
   padding:12px;
   font-size:14px;
+  word-wrap:break-word;
 }
  
 .user{
@@ -90,7 +81,13 @@ html, body {
   align-self:flex-start;
 }
  
-/* INPUT (FIXED STRUCTURE) */
+.msg img{
+  max-width:100%;
+  border-radius:10px;
+  margin-top:6px;
+}
+ 
+/* INPUT */
 .input{
   display:flex;
   align-items:center;
@@ -99,7 +96,6 @@ html, body {
   background:#111;
 }
  
-/* TEXTAREA */
 textarea{
   flex:1;
   padding:10px;
@@ -113,7 +109,6 @@ textarea{
   overflow-y:auto;
 }
  
-/* BUTTON */
 button{
   padding:10px 14px;
   background:#0078d7;
@@ -124,7 +119,6 @@ button{
   flex-shrink:0;
 }
  
-/* PERFECT CIRCLE */
 .upload-btn{
   width:42px;
   height:42px;
@@ -138,9 +132,8 @@ button{
   padding:0;
 }
  
-/* MOBILE FIX */
+/* MOBILE */
 @media (max-width:600px){
- 
   .wrapper{
     height:100%;
     align-items:stretch;
@@ -157,7 +150,6 @@ button{
     display:flex;
     flex-direction:column;
   }
- 
 }
  
 </style>
@@ -165,12 +157,9 @@ button{
  
 <body>
  
-<div class="notice">
-AI-generated content may be incorrect
-</div>
+<div class="notice">AI-generated content may be incorrect</div>
  
 <div class="wrapper">
- 
 <div class="app">
  
 <div class="header">⚡ NexAI Assist</div>
@@ -178,32 +167,25 @@ AI-generated content may be incorrect
 <div id="chat" class="chat"></div>
  
 <div class="input">
- 
 <button class="upload-btn" onclick="selectImage()">+</button>
- 
 <textarea id="msg" rows="1" placeholder="Ask an IT question..."></textarea>
- 
 <button onclick="send()">Send</button>
- 
 <input type="file" id="fileInput" style="display:none" accept="image/*">
- 
 </div>
  
 </div>
- 
 </div>
  
 <script>
  
 const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
+const session = Date.now(); // IMPORTANT
  
-/* GREETING */
 window.onload = () => {
   add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
 };
  
-/* AUTO EXPAND */
 msgInput.addEventListener("input", () => {
   msgInput.style.height = "auto";
   msgInput.style.height = msgInput.scrollHeight + "px";
@@ -212,97 +194,92 @@ msgInput.addEventListener("input", () => {
 /* ADD MESSAGE */
 function add(text, type){
  
-  if(type === "user"){
-    const d=document.createElement("div");
-    d.className="msg user";
-    d.innerText=text;
-    chat.appendChild(d);
-    scrollDown();
-    return;
+  const d = document.createElement("div");
+  d.className = "msg " + type;
+ 
+  if(type === "bot"){
+    d.innerHTML = marked.parse(text);
+  } else {
+    d.innerText = text;
   }
  
-  const parts=text.split(/```/g);
- 
-  parts.forEach((p,i)=>{
-    if(i%2===0){
-      if(p.trim()){
-        let d=document.createElement("div");
-        d.className="msg bot";
-        d.innerHTML=marked.parse(p);
-        chat.appendChild(d);
-      }
-    } else {
-      let clean=cleanCode(p);
- 
-      let d=document.createElement("div");
-      d.className="msg bot";
- 
-      d.innerHTML=`
-        <div class="code-block">
-          <div class="code-header">
-            PowerShell
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-          </div>
-          <pre>${escapeHtml(clean)}</pre>
-        </div>
-      `;
- 
-      chat.appendChild(d);
-    }
-  });
- 
+  chat.appendChild(d);
   scrollDown();
 }
  
-/* CLEAN CODE */
-function cleanCode(code){
-  const lines=code.trim().split("\n");
-  if(lines[0].toLowerCase().includes("powershell")){
-    lines.shift();
-  }
-  return lines.join("\n");
-}
- 
-/* SEND */
+/* SEND WITH TYPING */
 function send(){
-  let t=msgInput.value.trim();
-  if(!t)return;
  
-  add(t,"user");
+  const t = msgInput.value.trim();
+  if(!t) return;
+ 
+  add(t, "user");
+ 
+  // SHOW TYPING
+  const typing = document.createElement("div");
+  typing.className = "msg bot";
+  typing.innerText = "Typing...";
+  chat.appendChild(typing);
+  scrollDown();
  
   fetch("/chat",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:t,module:"it"})
+    body:JSON.stringify({
+      message:t,
+      module:"it",
+      session_id:session
+    })
   })
-  .then(r=>r.json())
-  .then(d=>add(d.text,"bot"));
+  .then(r => r.json())
+  .then(d => {
+    typing.remove();
+    add(d.text, "bot");
+  })
+  .catch(() => {
+    typing.remove();
+    add("Error occurred", "bot");
+  });
  
   msgInput.value="";
   msgInput.style.height="auto";
 }
  
 /* ENTER */
-msgInput.addEventListener("keydown",e=>{
-  if(e.key==="Enter"&&!e.shiftKey){
+msgInput.addEventListener("keydown", e=>{
+  if(e.key==="Enter" && !e.shiftKey){
     e.preventDefault();
     send();
   }
 });
  
-/* FILE BUTTON */
+/* IMAGE UPLOAD → BACKEND */
 function selectImage(){
   document.getElementById("fileInput").click();
 }
  
-document.getElementById("fileInput").addEventListener("change",e=>{
-  let file=e.target.files[0];
-  if(!file)return;
+document.getElementById("fileInput").addEventListener("change", e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  handleImage(file);
+});
  
-  const reader=new FileReader();
+/* PASTE IMAGE */
+document.addEventListener("paste", e=>{
+  for(let item of e.clipboardData.items){
+    if(item.type.includes("image")){
+      handleImage(item.getAsFile());
+    }
+  }
+});
  
-  reader.onload=e=>{
-    let d=document.createElement("div");
+/* HANDLE IMAGE + SEND */
+function handleImage(file){
+ 
+  const reader = new FileReader();
+ 
+  reader.onload = e=>{
+    let d = document.createElement("div");
     d.className="msg user";
  
     let img=document.createElement("img");
@@ -314,55 +291,31 @@ document.getElementById("fileInput").addEventListener("change",e=>{
   };
  
   reader.readAsDataURL(file);
-});
  
-/* PASTE */
-document.addEventListener("paste",e=>{
-  for(let item of e.clipboardData.items){
-    if(item.type.includes("image")){
-      const file=item.getAsFile();
+  // SEND TO BACKEND
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("session_id", session);
  
-      const reader=new FileReader();
+  const typing = document.createElement("div");
+  typing.className = "msg bot";
+  typing.innerText = "Analyzing image...";
+  chat.appendChild(typing);
  
-      reader.onload=e=>{
-        let d=document.createElement("div");
-        d.className="msg user";
- 
-        let img=document.createElement("img");
-        img.src=e.target.result;
- 
-        d.appendChild(img);
-        chat.appendChild(d);
-        scrollDown();
-      };
- 
-      reader.readAsDataURL(file);
-    }
-  }
-});
- 
-/* COPY */
-function copyCode(btn){
-  const code=btn.closest(".code-block")
-               .querySelector("pre")
-               .innerText.trim();
-  navigator.clipboard.writeText(code);
+  fetch("/analyze-image", {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    typing.remove();
+    add(data.text, "bot");
+  });
 }
  
 /* SCROLL */
 function scrollDown(){
   setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
-}
- 
-/* ESCAPE */
-function escapeHtml(str){
-  return str.replace(/[&<>"']/g,m=>({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#039;"
-  })[m]);
 }
  
 </script>
