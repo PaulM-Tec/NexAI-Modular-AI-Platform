@@ -297,10 +297,16 @@ def chat():
     if sid not in sessions:
         sessions[sid]={}
  
-    # image follow-up
-    if any(k in msg.lower() for k in ["image","screenshot","attached"]):
+    # IMAGE FOLLOW-UP (STRICT CONTROL)
+    if any(k in msg.lower() for k in ["image","screenshot","attached","this","what","that","explain"]
+ ):
+ 
         if sid in last_images:
-            return jsonify({"text":process_it_image(last_images[sid])})
+            result = process_it_image(last_images[sid])
+            return jsonify({"text": result})
+ 
+    # prevent wrong fallback
+    return jsonify({"text": "No image found in this session. Please upload an image first."})
  
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
