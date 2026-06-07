@@ -366,6 +366,17 @@ def serve_static(filename):
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory('.', 'favicon.ico')
+
+@app.post("/upload")
+def upload():
+    file = request.files.get("image")
+    if not file:
+        return {"error": "no file"}, 400
+ 
+    path = os.path.join("uploads", file.filename)
+    file.save(path)
+ 
+    return {"status": "ok"}
  
 # -------------------------
 # RUN
