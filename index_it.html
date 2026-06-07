@@ -54,7 +54,52 @@ html, body {
   gap:10px;
 }
  
-/* NEW preview bar */
+.msg{
+  max-width:80%;
+  width:fit-content;
+  border-radius:16px;
+  padding:12px;
+  font-size:14px;
+  overflow-wrap:break-word;
+}
+.user{
+  background:#0078d7;
+  color:white;
+  align-self:flex-end;
+}
+.bot{
+  background:#2d2d44;
+  color:white;
+  align-self:flex-start;
+}
+.msg img{
+  max-width:100%;
+  border-radius:10px;
+  margin-top:6px;
+}
+ 
+/* CODE BLOCK */
+.code-block{
+  background:#111;
+  border-radius:10px;
+  margin-top:6px;
+}
+.code-header{
+  display:flex;
+  justify-content:space-between;
+  background:#333;
+  padding:6px;
+}
+.copy-btn{
+  background:#0078d7;
+  color:white;
+  border:none;
+}
+.code-block pre{
+  overflow-x:auto;
+}
+ 
+/* IMAGE PREVIEW BAR */
 .preview-bar{
   display:flex;
   gap:6px;
@@ -67,24 +112,14 @@ html, body {
   border-radius:6px;
 }
  
-.msg{
-  max-width:80%;
-  width:fit-content;
-  border-radius:16px;
-  padding:12px;
-  font-size:14px;
+/* INPUT */
+.input{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px;
+  background:#111;
 }
-.user{
-  background:#0078d7;
-  color:white;
-  align-self:flex-end;
-}
-.bot{
-  background:#2d2d44;
-  color:white;
-  align-self:flex-start;
-}
- 
 textarea{
   flex:1;
   padding:10px;
@@ -92,11 +127,9 @@ textarea{
   color:white;
   border:none;
   border-radius:12px;
-  resize:none;
-  font-size:14px;
 }
  
-/* FIXED BUTTON */
+/* FIXED BUTTON SIZE */
 .upload-btn{
   width:42px;
   height:42px;
@@ -106,21 +139,31 @@ textarea{
   border-radius:50%;
 }
  
-.input{
-  display:flex;
-  gap:8px;
-  padding:10px;
-  background:#111;
-}
- 
 button{
+  padding:10px 14px;
   background:#0078d7;
   color:white;
   border:none;
   border-radius:20px;
-  padding:10px;
 }
  
+/* MOBILE */
+@media (max-width:600px){
+  .wrapper{
+    height:100%;
+    align-items:stretch;
+  }
+  .app{
+    height:100%;
+    max-width:100%;
+    border-radius:0;
+    box-shadow:none;
+  }
+  body{
+    display:flex;
+    flex-direction:column;
+  }
+}
 </style>
 </head>
  
@@ -135,7 +178,7 @@ button{
  
 <div id="chat" class="chat"></div>
  
-<!-- preview area -->
+<!-- PREVIEW AREA -->
 <div id="previewBar" class="preview-bar"></div>
  
 <div class="input">
@@ -156,6 +199,10 @@ const previewBar = document.getElementById("previewBar");
  
 let pendingImages = [];
  
+window.onload = () => {
+  add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
+};
+ 
 msgInput.addEventListener("input", ()=>{
   msgInput.style.height="auto";
   msgInput.style.height=msgInput.scrollHeight+"px";
@@ -166,12 +213,13 @@ function add(text,type){
   d.className="msg "+type;
   d.innerHTML=marked.parse(text);
   chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
+  scrollDown();
 }
  
 function send(){
-  let t=msgInput.value.trim();
-  if(!t && pendingImages.length===0) return;
+  const t = msgInput.value.trim();
+ 
+  if(!t && pendingImages.length === 0) return;
  
   if(t) add(t,"user");
  
@@ -180,23 +228,32 @@ function send(){
     d.className="msg user";
     let img=document.createElement("img");
     img.src=src;
-    img.style.maxWidth="100%";
     d.appendChild(img);
     chat.appendChild(d);
   });
  
-  add("Typing...","bot");
+  let typing=document.createElement("div");
+  typing.className="msg bot";
+  typing.innerText="Typing...";
+  chat.appendChild(typing);
  
   fetch("/chat",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:t})
+    body:JSON.stringify({
+      message:t,
+      module:"it",
+      session_id:Date.now()
+    })
   })
   .then(r=>r.json())
-  .then(d=>add(d.text,"bot"));
+  .then(d=>{
+    typing.remove();
+    add(d.text,"bot");
+  });
  
-  pendingImages=[];
-  previewBar.innerHTML="";
+  pendingImages = [];
+  previewBar.innerHTML = "";
   msgInput.value="";
 }
  
@@ -211,11 +268,11 @@ function selectImage(){
   document.getElementById("fileInput").click();
 }
  
-document.getElementById("fileInput").addEventListener("change",e=>{
+document.getElementById("fileInput").addEventListener("change", e=>{
   [...e.target.files].forEach(file=>preview(file));
 });
  
-document.addEventListener("paste",e=>{
+document.addEventListener("paste", e=>{
   for(let item of e.clipboardData.items){
     if(item.type.includes("image")){
       preview(item.getAsFile());
@@ -223,10 +280,12 @@ document.addEventListener("paste",e=>{
   }
 });
  
+/* PREVIEW (VISIBLE BUT NOT SENT) */
 function preview(file){
   const reader=new FileReader();
   reader.onload=e=>{
     let src=e.target.result;
+ 
     pendingImages.push(src);
  
     let img=document.createElement("img");
@@ -234,6 +293,10 @@ function preview(file){
     previewBar.appendChild(img);
   };
   reader.readAsDataURL(file);
+}
+ 
+function scrollDown(){
+  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
 }
  
 </script>
