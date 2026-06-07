@@ -28,7 +28,7 @@ html, body {
   background:#111;
 }
  
-/* CENTER WRAPPER */
+/* WRAPPER */
 .wrapper{
   display:flex;
   justify-content:center;
@@ -36,18 +36,16 @@ html, body {
   height:calc(100% - 24px);
 }
  
-/* APP CARD */
+/* APP */
 .app{
   width:100%;
   max-width:420px;
   height:95%;
   display:flex;
   flex-direction:column;
- 
   background:#252542;
   border-radius:16px;
   overflow:hidden;
- 
   box-shadow:0 8px 30px rgba(0,0,0,0.6);
 }
  
@@ -77,7 +75,6 @@ html, body {
   border-radius:16px;
   padding:12px;
   font-size:14px;
-  line-height:1.4;
 }
  
 .user{
@@ -96,7 +93,6 @@ html, body {
 .msg img{
   max-width:100%;
   border-radius:10px;
-  margin-top:6px;
 }
  
 /* CODE */
@@ -134,13 +130,14 @@ pre{
 /* INPUT */
 .input{
   display:flex;
-  gap:6px;
+  align-items:center;   /* FIX alignment */
+  gap:8px;
   padding:10px;
   background:#111;
   flex-shrink:0;
 }
  
-/* TEXTBOX */
+/* TEXTAREA */
 textarea{
   flex:1;
   padding:10px;
@@ -162,29 +159,38 @@ button{
   border:none;
   border-radius:20px;
   cursor:pointer;
+  flex-shrink:0;
 }
  
-/* + BUTTON */
+/* PERFECT CIRCLE FIX */
 .upload-btn{
-  width:36px;
+  width:40px;
+  height:40px;      /* critical fix */
+  min-width:40px;
+  min-height:40px;
   border-radius:50%;
-  font-size:20px;
   display:flex;
   align-items:center;
   justify-content:center;
+  font-size:20px;
+  padding:0;
 }
  
-/* MOBILE FULLSCREEN */
+/* MOBILE FIX ONLY */
 @media(max-width:600px){
+ 
   .wrapper{
     height:100%;
+    align-items:stretch;   /* FIX mobile stretch */
   }
  
   .app{
     height:100%;
     max-width:100%;
     border-radius:0;
+    box-shadow:none;      /* remove floating feel */
   }
+ 
 }
  
 </style>
@@ -231,7 +237,7 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
 };
  
-/* AUTO EXPAND */
+/* AUTO GROW */
 msgInput.addEventListener("input", () => {
   msgInput.style.height = "auto";
   msgInput.style.height = msgInput.scrollHeight + "px";
@@ -241,7 +247,7 @@ msgInput.addEventListener("input", () => {
 function add(text, type){
  
   if(type === "user"){
-    let d=document.createElement("div");
+    const d=document.createElement("div");
     d.className="msg user";
     d.innerText=text;
     chat.appendChild(d);
@@ -249,7 +255,7 @@ function add(text, type){
     return;
   }
  
-  let parts=text.split(/```/g);
+  const parts=text.split(/```/g);
  
   parts.forEach((p,i)=>{
     if(i%2===0){
@@ -260,7 +266,6 @@ function add(text, type){
         chat.appendChild(d);
       }
     } else {
- 
       let clean=cleanCode(p);
  
       let d=document.createElement("div");
@@ -285,7 +290,7 @@ function add(text, type){
  
 /* CLEAN CODE */
 function cleanCode(code){
-  let lines=code.trim().split("\n");
+  const lines=code.trim().split("\n");
   if(lines[0].toLowerCase().includes("powershell")){
     lines.shift();
   }
@@ -319,39 +324,16 @@ msgInput.addEventListener("keydown",e=>{
   }
 });
  
-/* COPY */
-function copyCode(btn){
-  let code=btn.closest(".code-block")
-              .querySelector("pre")
-              .innerText.trim();
- 
-  navigator.clipboard.writeText(code);
-}
- 
 /* FILE BUTTON */
 function selectImage(){
   document.getElementById("fileInput").click();
 }
  
-/* FILE UPLOAD */
 document.getElementById("fileInput").addEventListener("change",e=>{
   let file=e.target.files[0];
   if(!file)return;
-  handleImage(file);
-});
  
-/* PASTE */
-document.addEventListener("paste",e=>{
-  for(let item of e.clipboardData.items){
-    if(item.type.includes("image")){
-      handleImage(item.getAsFile());
-    }
-  }
-});
- 
-/* HANDLE IMAGE */
-function handleImage(file){
-  let reader=new FileReader();
+  const reader=new FileReader();
  
   reader.onload=e=>{
     let d=document.createElement("div");
@@ -366,6 +348,39 @@ function handleImage(file){
   };
  
   reader.readAsDataURL(file);
+});
+ 
+/* PASTE KEEP */
+document.addEventListener("paste",e=>{
+  for(let item of e.clipboardData.items){
+    if(item.type.includes("image")){
+      const file=item.getAsFile();
+ 
+      const reader=new FileReader();
+ 
+      reader.onload=e=>{
+        let d=document.createElement("div");
+        d.className="msg user";
+ 
+        let img=document.createElement("img");
+        img.src=e.target.result;
+ 
+        d.appendChild(img);
+        chat.appendChild(d);
+        scrollDown();
+      };
+ 
+      reader.readAsDataURL(file);
+    }
+  }
+});
+ 
+/* COPY */
+function copyCode(btn){
+  const code=btn.closest(".code-block")
+               .querySelector("pre")
+               .innerText.trim();
+  navigator.clipboard.writeText(code);
 }
  
 /* SCROLL */
