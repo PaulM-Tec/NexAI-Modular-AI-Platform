@@ -19,7 +19,7 @@ html, body {
   font-family:Arial, sans-serif;
 }
  
-/* WARNING */
+/* NOTICE */
 .notice{
   text-align:center;
   font-size:12px;
@@ -59,7 +59,7 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:10px;
-  padding-bottom:80px;
+  padding-bottom:90px;
 }
  
 /* MESSAGE */
@@ -138,6 +138,7 @@ pre{
   border-top:1px solid #333;
 }
  
+/* TEXTBOX (AUTO GROW) */
 textarea{
   flex:1;
   padding:10px;
@@ -147,8 +148,11 @@ textarea{
   border-radius:12px;
   resize:none;
   font-size:14px;
+  max-height:120px;
+  overflow-y:auto;
 }
  
+/* BUTTON */
 button{
   padding:10px 14px;
   background:#0078d7;
@@ -162,8 +166,22 @@ button:hover{
   background:#005fa3;
 }
  
-</style>
+/* UPLOAD BUTTON */
+.upload-btn{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:#0078d7;
+  color:white;
+  font-size:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  border:none;
+}
  
+</style>
 </head>
  
 <body>
@@ -179,8 +197,15 @@ AI-generated content may be incorrect
 <div id="chat" class="chat"></div>
  
 <div class="input">
+ 
+<button class="upload-btn" onclick="selectImage()">+</button>
+ 
 <textarea id="msg" rows="1" placeholder="Ask an IT question..."></textarea>
+ 
 <button onclick="send()">Send</button>
+ 
+<input type="file" id="fileInput" style="display:none" accept="image/*">
+ 
 </div>
  
 </div>
@@ -195,6 +220,12 @@ const session = Date.now();
 window.onload = () => {
   add("👋 Hi, I'm NexAI.\nHow can I help you with IT today?", "bot");
 };
+ 
+/* AUTO EXPAND TEXTAREA */
+msgInput.addEventListener("input", () => {
+  msgInput.style.height = "auto";
+  msgInput.style.height = msgInput.scrollHeight + "px";
+});
  
 /* ADD MESSAGE */
 function add(text, type){
@@ -286,6 +317,7 @@ function send(){
   });
  
   msgInput.value="";
+  msgInput.style.height = "auto";
 }
  
 /* ENTER + SHIFT ENTER */
@@ -298,13 +330,41 @@ msgInput.addEventListener("keydown", e=>{
  
 /* COPY */
 function copyCode(btn){
-  const code = btn.closest(".code-block").querySelector("pre").innerText.trim();
+  const code = btn.closest(".code-block")
+                 .querySelector("pre")
+                 .innerText.trim();
  
   navigator.clipboard.writeText(code).then(()=>{
     btn.innerText="Copied!";
     setTimeout(()=>btn.innerText="Copy",1500);
   });
 }
+ 
+/* IMAGE UPLOAD */
+function selectImage(){
+  document.getElementById("fileInput").click();
+}
+ 
+document.getElementById("fileInput").addEventListener("change", e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+ 
+  const reader = new FileReader();
+ 
+  reader.onload = function(evt){
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg user";
+ 
+    const img = document.createElement("img");
+    img.src = evt.target.result;
+ 
+    wrapper.appendChild(img);
+    chat.appendChild(wrapper);
+    scrollDown();
+  };
+ 
+  reader.readAsDataURL(file);
+});
  
 /* ESCAPE HTML */
 function escapeHtml(str){
