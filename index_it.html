@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexAI • Assist</title>
  
+<!-- Markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
-<link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+<!-- Syntax Highlight -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js/lib/common.min.js"></script>
  
 <style>
  
@@ -16,16 +19,7 @@ html, body {
   margin:0;
   height:100%;
   background:linear-gradient(180deg,#1e1e2f,#121220);
-  font-family:Arial, sans-serif;
-}
- 
-/* NOTICE */
-.notice{
-  text-align:center;
-  font-size:12px;
-  color:#aaa;
-  padding:6px;
-  background:#111;
+  font-family:Arial;
 }
  
 /* APP */
@@ -38,20 +32,16 @@ html, body {
   flex-direction:column;
   background:#252542;
   border-radius:16px;
-  box-shadow:0 8px 30px rgba(0,0,0,0.5);
   overflow:hidden;
 }
  
-/* HEADER */
 .header{
   padding:14px;
   text-align:center;
   background:linear-gradient(90deg,#0078d7,#00c6ff);
   color:white;
-  font-weight:bold;
 }
  
-/* CHAT */
 .chat{
   flex:1;
   overflow-y:auto;
@@ -59,7 +49,6 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:10px;
-  padding-bottom:90px;
 }
  
 /* MESSAGE */
@@ -67,128 +56,76 @@ html, body {
   max-width:85%;
   border-radius:16px;
   padding:10px;
-  font-size:14px;
-  line-height:1.5;
 }
  
-/* USER */
 .user{
   background:#0078d7;
   color:white;
   align-self:flex-end;
 }
  
-/* BOT */
 .bot{
   background:#2d2d44;
   color:white;
   align-self:flex-start;
 }
  
-/* IMAGES */
-.msg img{
-  max-width:100%;
-  border-radius:10px;
-  margin-top:8px;
-}
- 
-/* CODE BLOCK */
+/* CODE */
 .code-block{
   background:#16172b;
   border-radius:10px;
   overflow:hidden;
 }
  
-/* CODE HEADER */
 .code-header{
   display:flex;
   justify-content:space-between;
   padding:6px 10px;
-  font-size:12px;
   background:#2c2f48;
-  color:#ccc;
 }
  
-/* CODE */
 pre{
   margin:0;
-  padding:12px;
-  overflow-x:auto;
-}
- 
-/* COPY */
-.copy-btn{
-  background:#0078d7;
-  border:none;
-  color:white;
-  padding:4px 8px;
-  font-size:12px;
-  border-radius:5px;
-  cursor:pointer;
+  padding:10px;
 }
  
 /* INPUT */
 .input{
-  position:sticky;
-  bottom:0;
   display:flex;
   gap:6px;
   padding:10px;
   background:#111;
-  border-top:1px solid #333;
 }
  
-/* TEXTBOX (AUTO GROW) */
 textarea{
   flex:1;
-  padding:10px;
+  resize:none;
+  border:none;
+  border-radius:10px;
+  padding:8px;
   background:#2b2b40;
   color:white;
-  border:none;
-  border-radius:12px;
-  resize:none;
-  font-size:14px;
-  max-height:120px;
-  overflow-y:auto;
 }
  
-/* BUTTON */
+/* BUTTONS */
 button{
-  padding:10px 14px;
   background:#0078d7;
   color:white;
   border:none;
   border-radius:20px;
+  padding:8px;
   cursor:pointer;
 }
  
-button:hover{
-  background:#005fa3;
-}
- 
-/* UPLOAD BUTTON */
 .upload-btn{
-  width:36px;
-  height:36px;
+  width:35px;
   border-radius:50%;
-  background:#0078d7;
-  color:white;
-  font-size:20px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  border:none;
 }
  
 </style>
 </head>
  
 <body>
- 
-<div class="notice">
-AI-generated content may be incorrect
-</div>
  
 <div class="app">
  
@@ -200,7 +137,9 @@ AI-generated content may be incorrect
  
 <button class="upload-btn" onclick="selectImage()">+</button>
  
-<textarea id="msg" rows="1" placeholder="Ask an IT question..."></textarea>
+<button onclick="startVoice()">🎤</button>
+ 
+<textarea id="msg"></textarea>
  
 <button onclick="send()">Send</button>
  
@@ -214,167 +153,168 @@ AI-generated content may be incorrect
  
 const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
-const session = Date.now();
  
-/* GREETING */
+/* LOAD HISTORY */
 window.onload = () => {
-  add("👋 Hi, I'm NexAI.\nHow can I help you with IT today?", "bot");
+  const saved = localStorage.getItem("chat");
+  if(saved){
+    chat.innerHTML = saved;
+  } else {
+    add("👋 Hi, how can I help?", "bot");
+  }
 };
  
-/* AUTO EXPAND TEXTAREA */
-msgInput.addEventListener("input", () => {
-  msgInput.style.height = "auto";
-  msgInput.style.height = msgInput.scrollHeight + "px";
-});
+/* SAVE */
+function save(){
+  localStorage.setItem("chat", chat.innerHTML);
+}
  
 /* ADD MESSAGE */
 function add(text, type){
  
   if(type === "user"){
-    const d = document.createElement("div");
-    d.className = "msg user";
-    d.innerText = text;
+    const d=document.createElement("div");
+    d.className="msg user";
+    d.innerText=text;
     chat.appendChild(d);
-    scrollDown();
+    save();
     return;
   }
  
-  const parts = text.split(/```/g);
+  const parts=text.split(/```/g);
  
-  parts.forEach((part, index) => {
- 
-    if(index % 2 === 0){
-      if(part.trim()){
-        const t = document.createElement("div");
-        t.className = "msg bot";
-        t.innerHTML = marked.parse(part);
-        chat.appendChild(t);
-      }
+  parts.forEach((p,i)=>{
+    if(i%2===0){
+      let d=document.createElement("div");
+      d.className="msg bot";
+      d.innerHTML=marked.parse(p);
+      chat.appendChild(d);
     } else {
+      let clean=p.split("\n").slice(1).join("\n");
  
-      const clean = cleanCode(part);
+      let d=document.createElement("div");
+      d.className="msg bot";
  
-      const c = document.createElement("div");
-      c.className = "msg bot";
- 
-      c.innerHTML = `
+      d.innerHTML=`
         <div class="code-block">
           <div class="code-header">
             PowerShell
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <button onclick="copyCode(this)">Copy</button>
           </div>
-          <pre>${escapeHtml(clean)}</pre>
+          <pre><code>${clean}</code></pre>
         </div>
       `;
  
-      chat.appendChild(c);
+      chat.appendChild(d);
     }
- 
   });
  
-  scrollDown();
+  highlight();
+  scroll();
+  save();
 }
  
-/* CLEAN CODE */
-function cleanCode(code){
-  const lines = code.trim().split("\n");
-  if(lines[0].toLowerCase().includes("powershell")){
-    lines.shift();
-  }
-  return lines.join("\n");
+/* HIGHLIGHT */
+function highlight(){
+  document.querySelectorAll("pre code").forEach(block=>{
+    hljs.highlightElement(block);
+  });
 }
  
-/* SCROLL */
-function scrollDown(){
-  setTimeout(() => chat.scrollTop = chat.scrollHeight, 50);
+/* COPY */
+function copyCode(btn){
+  const code=btn.closest(".code-block").innerText;
+  navigator.clipboard.writeText(code);
 }
  
 /* SEND */
 function send(){
-  const t = msgInput.value.trim();
-  if(!t) return;
+  let t=msgInput.value.trim();
+  if(!t)return;
  
-  add(t, "user");
- 
-  const thinking = document.createElement("div");
-  thinking.className = "msg bot";
-  thinking.innerText = "Typing...";
-  chat.appendChild(thinking);
+  add(t,"user");
  
   fetch("/chat",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      message:t,
-      module:"it",
-      session_id:session
-    })
+    body:JSON.stringify({message:t,module:"it"})
   })
-  .then(r => r.json())
-  .then(d => {
-    thinking.remove();
-    add(d.text, "bot");
+  .then(r=>r.json())
+  .then(d=>{
+    add(d.text,"bot");
   });
  
   msgInput.value="";
-  msgInput.style.height = "auto";
 }
  
-/* ENTER + SHIFT ENTER */
-msgInput.addEventListener("keydown", e=>{
-  if(e.key === "Enter" && !e.shiftKey){
+/* AUTO EXPAND */
+msgInput.addEventListener("input",()=>{
+  msgInput.style.height="auto";
+  msgInput.style.height=msgInput.scrollHeight+"px";
+});
+ 
+/* ENTER */
+msgInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.shiftKey){
     e.preventDefault();
     send();
   }
 });
  
-/* COPY */
-function copyCode(btn){
-  const code = btn.closest(".code-block")
-                 .querySelector("pre")
-                 .innerText.trim();
- 
-  navigator.clipboard.writeText(code).then(()=>{
-    btn.innerText="Copied!";
-    setTimeout(()=>btn.innerText="Copy",1500);
-  });
-}
- 
-/* IMAGE UPLOAD */
+/* IMAGE */
 function selectImage(){
   document.getElementById("fileInput").click();
 }
  
-document.getElementById("fileInput").addEventListener("change", e=>{
-  const file = e.target.files[0];
-  if(!file) return;
+document.getElementById("fileInput").addEventListener("change",e=>{
+  handleImage(e.target.files[0]);
+});
  
-  const reader = new FileReader();
+/* DRAG DROP */
+chat.addEventListener("dragover",e=>e.preventDefault());
+chat.addEventListener("drop",e=>{
+  e.preventDefault();
+  handleImage(e.dataTransfer.files[0]);
+});
  
-  reader.onload = function(evt){
-    const wrapper = document.createElement("div");
-    wrapper.className = "msg user";
+/* IMAGE HANDLER */
+function handleImage(file){
+  if(!file)return;
  
-    const img = document.createElement("img");
-    img.src = evt.target.result;
+  let reader=new FileReader();
  
-    wrapper.appendChild(img);
-    chat.appendChild(wrapper);
-    scrollDown();
+  reader.onload=e=>{
+    let img=document.createElement("img");
+    img.src=e.target.result;
+ 
+    let d=document.createElement("div");
+    d.className="msg user";
+    d.appendChild(img);
+ 
+    chat.appendChild(d);
+    save();
   };
  
   reader.readAsDataURL(file);
-});
  
-/* ESCAPE HTML */
-function escapeHtml(str){
-  return str.replace(/[&<>"']/g, m => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#039;"
-  })[m]);
+  /* SEND TO BACKEND */
+  let fd=new FormData();
+  fd.append("image",file);
+  fetch("/upload",{method:"POST",body:fd});
+}
+ 
+/* VOICE */
+function startVoice(){
+  const r=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
+  r.onresult=e=>{
+    msgInput.value+=e.results[0][0].transcript;
+  };
+  r.start();
+}
+ 
+/* SCROLL */
+function scroll(){
+  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
 }
  
 </script>
