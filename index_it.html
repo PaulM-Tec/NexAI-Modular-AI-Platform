@@ -7,37 +7,41 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
 <style>
- 
 html, body {
   margin:0;
   height:100%;
   background:linear-gradient(180deg,#1e1e2f,#121220);
   font-family:Arial, sans-serif;
 }
- 
+.notice{
+  text-align:center;
+  font-size:12px;
+  color:#aaa;
+  padding:6px;
+  background:#111;
+}
 .wrapper{
   display:flex;
   justify-content:center;
   align-items:center;
-  height:100%;
+  height:calc(100% - 24px);
 }
- 
 .app{
-  max-width:420px;
   width:100%;
-  height:100%;
+  max-width:420px;
+  height:95%;
   display:flex;
   flex-direction:column;
   background:#252542;
+  border-radius:16px;
+  overflow:hidden;
 }
- 
 .header{
   padding:14px;
   text-align:center;
-  background:#0078d7;
+  background:linear-gradient(90deg,#0078d7,#00c6ff);
   color:white;
 }
- 
 .chat{
   flex:1;
   overflow-y:auto;
@@ -45,48 +49,49 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:10px;
+  min-height:0;
 }
  
-/* MESSAGE FIX */
+/* FIXED MESSAGE */
 .msg{
   max-width:80%;
   width:fit-content;
-  padding:12px;
   border-radius:16px;
+  padding:12px;
+  font-size:14px;
   word-wrap:break-word;
 }
  
 .user{
   background:#0078d7;
+  color:white;
   align-self:flex-end;
 }
- 
 .bot{
   background:#2d2d44;
+  color:white;
   align-self:flex-start;
 }
  
-/* CODE BLOCK FIX */
+/* FIXED CODE BLOCK */
 .code-block{
-  margin-top:10px;
+  margin-top:8px;
   background:#111;
   border-radius:8px;
   overflow:hidden;
 }
- 
 .code-header{
   display:flex;
   justify-content:space-between;
-  padding:6px;
   background:#333;
+  padding:6px;
 }
- 
 .copy-btn{
   background:#0078d7;
   color:white;
   border:none;
-  padding:3px 8px;
   cursor:pointer;
+  padding:2px 8px;
 }
  
 /* CRITICAL FIX */
@@ -98,29 +103,28 @@ html, body {
   white-space:pre;
 }
  
+/* INPUT */
 .input{
   display:flex;
+  align-items:center;
+  gap:8px;
   padding:10px;
   background:#111;
 }
- 
 textarea{
   flex:1;
-  padding:8px;
-  border:none;
-  border-radius:10px;
+  padding:10px;
   background:#2b2b40;
   color:white;
+  border:none;
+  border-radius:12px;
 }
- 
-button{
-  margin-left:6px;
-}
- 
 </style>
 </head>
  
 <body>
+ 
+<div class="notice">AI-generated content may be incorrect</div>
  
 <div class="wrapper">
 <div class="app">
@@ -130,9 +134,8 @@ button{
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<textarea id="msg"></textarea>
+<textarea id="msg" rows="1"></textarea>
 <button onclick="send()">Send</button>
-<input type="file" id="fileInput" hidden>
 </div>
  
 </div>
@@ -140,51 +143,51 @@ button{
  
 <script>
  
-const chat=document.getElementById("chat");
-const session=Date.now();
+const chat = document.getElementById("chat");
+const session = Date.now();
  
-/* FIXED RENDERING */
+/* FIXED RENDER (single message container) */
 function add(text,type){
  
+  const container = document.createElement("div");
+  container.className = "msg " + type;
+ 
   const parts = text.split(/```/g);
+  let html = "";
  
-  parts.forEach((part,i)=>{
- 
-    let d=document.createElement("div");
-    d.className="msg "+type;
- 
+  parts.forEach((p,i)=>{
     if(i%2===0){
-      d.innerHTML = marked.parse(part);
-    }
-    else{
-      d.innerHTML = `
+      html += marked.parse(p);
+    } else {
+      html += `
         <div class="code-block">
           <div class="code-header">
             PowerShell
             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
           </div>
-          <pre>${escapeHtml(part)}</pre>
+          <pre>${escapeHtml(p)}</pre>
         </div>`;
     }
- 
-    chat.appendChild(d);
   });
  
-  scroll();
+  container.innerHTML = html;
+  chat.appendChild(container);
+ 
+  scrollDown();
 }
  
+/* COPY */
 function copyCode(btn){
-  const code=btn.closest(".code-block").querySelector("pre").innerText;
+  const code = btn.closest(".code-block").querySelector("pre").innerText;
   navigator.clipboard.writeText(code);
 }
  
 /* SEND */
 function send(){
+  let t=document.getElementById("msg").value.trim();
+  if(!t)return;
  
-  let text=document.getElementById("msg").value.trim();
-  if(!text)return;
- 
-  add(text,"user");
+  add(t,"user");
  
   let typing=document.createElement("div");
   typing.className="msg bot";
@@ -195,7 +198,7 @@ function send(){
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
-      message:text,
+      message:t,
       session_id:session
     })
   })
@@ -206,12 +209,14 @@ function send(){
   });
 }
  
-function scroll(){
-  chat.scrollTop=chat.scrollHeight;
+/* SCROLL */
+function scrollDown(){
+  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
 }
  
-function escapeHtml(t){
-  return t.replace(/[&<>]/g,m=>(
+/* ESCAPE */
+function escapeHtml(str){
+  return str.replace(/[&<>]/g,m=>(
     {"&":"&amp;","<":"&lt;",">":"&gt;"}[m]
   ));
 }
