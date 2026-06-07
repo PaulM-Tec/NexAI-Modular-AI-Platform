@@ -12,37 +12,30 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
- 
 # -------------------------
 # INIT
 # -------------------------
 load_dotenv()
 client = None
- 
 def get_client():
     global client
     if client is None:
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     return client
- 
 app = Flask(__name__)
 CORS(app)
- 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "bookings.db")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
- 
 sessions = {}
 last_images = {}
- 
 # -------------------------
 # HEALTH
 # -------------------------
 @app.get("/health")
 def health():
     return {"status": "ok"}
- 
 # -------------------------
 # DB
 # -------------------------
@@ -64,15 +57,12 @@ def init_db():
     """)
     conn.commit()
     conn.close()
- 
 init_db()
- 
 # -------------------------
 # UTIL
 # -------------------------
 def generate_booking_id():
     return f"NX-{datetime.now().strftime('%Y%m%d%H%M%S')}"
- 
 def calculate_date(day):
     today = datetime.now()
     days_map = {
@@ -82,7 +72,6 @@ def calculate_date(day):
     target = days_map[day.lower()]
     diff = (target - today.weekday()) % 7
     return today + timedelta(days=7 if diff == 0 else diff)
- 
 def is_slot_taken(day,time):
     conn=sqlite3.connect(DB_PATH)
     cursor=conn.cursor()
@@ -90,7 +79,6 @@ def is_slot_taken(day,time):
     result=cursor.fetchone()
     conn.close()
     return result is not None
- 
 def save_booking(data):
     conn=sqlite3.connect(DB_PATH)
     cursor=conn.cursor()
@@ -103,7 +91,6 @@ def save_booking(data):
     ))
     conn.commit()
     conn.close()
- 
 # -------------------------
 # SLACK / EMAIL / CALENDAR
 # -------------------------
@@ -114,7 +101,6 @@ def send_to_slack(msg):
             requests.post(webhook,json={"text":msg})
     except:
         pass
- 
 def send_email(email,name,vehicle,date,time):
     try:
         sg=SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
@@ -127,7 +113,6 @@ def send_email(email,name,vehicle,date,time):
         sg.send(msg)
     except:
         pass
- 
 def create_calendar_event(day,time,data):
     try:
         creds=service_account.Credentials.from_service_account_file(
@@ -151,9 +136,8 @@ def create_calendar_event(day,time,data):
         ).execute()
     except:
         pass
- 
 # -------------------------
-# IMAGE AI
+# IMAGE AI (UNCHANGED)
 # -------------------------
 def process_it_image(img):
     try:
@@ -182,9 +166,8 @@ def process_it_image(img):
         return r.choices[0].message.content
     except:
         return "Image analysis failed"
- 
 # -------------------------
-# VEHICLE
+# VEHICLE (UNCHANGED ✅)
 # -------------------------
 def vehicle_ai(msg,session):
     text=msg.lower()
@@ -248,15 +231,13 @@ def vehicle_ai(msg,session):
         ).start()
         session.clear()
         return {"text":f"Booking confirmed\nID:{booking_id}"}
- 
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role":"user","content":msg}]
     )
     return {"text":r.choices[0].message.content}
- 
 # -------------------------
-# ASSIST
+# ASSIST (UNCHANGED)
 # -------------------------
 def it_ai(msg):
     r=get_client().chat.completions.create(
@@ -264,29 +245,36 @@ def it_ai(msg):
         messages=[{"role":"user","content":msg}]
     )
     return {"text":r.choices[0].message.content}
- 
 # -------------------------
-# ROUTES FIX APPLIED HERE ONLY
+# ROUTES FIXED ONLY HERE
 # -------------------------
+@app.get("/vehicle")
+def vehicle():
+    return send_from_directory(BASE_DIR, "index_vehicle.html")
+@app.get("/it")
+def it():
+    return send_from_directory(BASE_DIR, "index_it.html")
 @app.post("/chat")
 def chat():
     data=request.get_json()
     msg=data.get("message","")
     module=data.get("module","it")
     sid=data.get("session_id","default")
- 
     if sid not in sessions:
         sessions[sid]={}
- 
-    # FIX: automatically use last image if present
-    if module == "it" and sid in last_images:
-        return jsonify({"text": process_it_image(last_images[sid])})
- 
+    image_keywords = ["image","screenshot","attached","uploaded"]
+    # FIX: only intercept TRUE image intent
+    if any(word in msg.lower() for word in image_keywords):
+        if sid in last_images:
+            return jsonify({"text": process_it_image(last_images[sid])})
+        else:
+            return jsonify({
+                "text": "No image found in this session. Please upload an image first."
+            })
+    # Normal flow untouched
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
- 
     return jsonify(it_ai(msg))
- 
 @app.post("/analyze-image")
 def analyze_image():
     file=request.files.get("image")
@@ -296,15 +284,19 @@ def analyze_image():
     img=base64.b64encode(file.read()).decode()
     last_images[sid]=img
     return {"text":process_it_image(img)}
- 
+@app.post("/upload")
+def upload():
+    file=request.files.get("image")
+    if not file:
+        return {"error":"no file"},400
+    file.save(os.path.join(UPLOAD_FOLDER,file.filename))
+    return {"status":"ok"}
 @app.route('/<path:filename>')
 def serve_static(filename):
     return send_from_directory(BASE_DIR, filename)
- 
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(BASE_DIR,'favicon.ico')
- 
 # -------------------------
 # RUN
 # -------------------------
