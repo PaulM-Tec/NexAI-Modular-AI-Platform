@@ -5,7 +5,7 @@
 <title>NexAI • Assist</title>
  
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+/favicon.ico?v=2
  
 <style>
 html, body {
@@ -197,6 +197,12 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
 };
  
+/* FIX 1: TEXTAREA AUTO EXPAND RESTORED */
+msgInput.addEventListener("input", () => {
+  msgInput.style.height = "auto";
+  msgInput.style.height = msgInput.scrollHeight + "px";
+});
+ 
 /* ADD MESSAGE */
 function add(text, type){
  
@@ -210,7 +216,7 @@ function add(text, type){
     if(i%2===0){
       html += marked.parse(p);
     } else {
-      let cleaned = p.replace(/^powershell\s*/i,''); // FIX
+      let cleaned = p.replace(/^powershell\s*/i,'');
  
       html += `
         <div class="code-block">
@@ -285,8 +291,10 @@ function send(){
  
   pendingImages = [];
   msgInput.value="";
+  msgInput.style.height="auto";
 }
  
+/* ENTER */
 msgInput.addEventListener("keydown", e=>{
   if(e.key==="Enter" && !e.shiftKey){
     e.preventDefault();
@@ -311,10 +319,25 @@ document.addEventListener("paste", e=>{
   }
 });
  
+/* FIX 2: IMAGE PREVIEW RESTORED */
 function previewImage(file){
   const reader = new FileReader();
   reader.onload = e=>{
-    pendingImages.push(e.target.result); // NO AUTO SEND
+    const src = e.target.result;
+ 
+    pendingImages.push(src);
+ 
+    // show preview immediately
+    const d = document.createElement("div");
+    d.className="msg user";
+ 
+    const img = document.createElement("img");
+    img.src = src;
+ 
+    d.appendChild(img);
+    chat.appendChild(d);
+ 
+    scrollDown();
   };
   reader.readAsDataURL(file);
 }
