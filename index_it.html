@@ -58,17 +58,17 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:8px;
-  padding-bottom:80px; /* prevents overlap */
+  padding-bottom:80px;
 }
  
 /* MESSAGE */
 .msg{
-  max-width:80%;
-  padding:12px;
+  max-width:85%;
   border-radius:16px;
   font-size:14px;
-  line-height:1.4;
+  line-height:1.5;
   word-wrap:break-word;
+  padding:10px;
 }
  
 /* USER */
@@ -89,13 +89,27 @@ html, body {
  
 /* CODE BLOCK */
 .code-block{
-  position:relative;
+  background:#16172b;
+  border-radius:10px;
+  overflow:hidden;
+  margin-top:8px;
 }
  
+/* HEADER (LIKE YOUR TARGET UI) */
+.code-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:6px 10px;
+  font-size:12px;
+  background:#2c2f48;
+  color:#ccc;
+}
+ 
+/* CODE */
 pre{
-  background:#16172b;
+  margin:0;
   padding:12px;
-  border-radius:8px;
   overflow-x:auto;
   font-size:13px;
   line-height:1.4;
@@ -103,9 +117,6 @@ pre{
  
 /* COPY BUTTON */
 .copy-btn{
-  position:absolute;
-  top:6px;
-  right:6px;
   background:#0078d7;
   border:none;
   color:white;
@@ -115,7 +126,7 @@ pre{
   cursor:pointer;
 }
  
-/* INPUT AREA */
+/* INPUT */
 .input{
   position:sticky;
   bottom:0;
@@ -127,7 +138,6 @@ pre{
   border-top:1px solid #333;
 }
  
-/* INPUT */
 input{
   flex:1;
   padding:10px;
@@ -138,7 +148,6 @@ input{
   font-size:14px;
 }
  
-/* BUTTON */
 button{
   padding:10px 14px;
   background:#0078d7;
@@ -188,37 +197,62 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI.\nHow can I help you with IT today?", "bot");
 };
  
-/* ADD MESSAGE */
+/* ADD MESSAGE (STRUCTURED OUTPUT) */
 function add(text, type){
  
-  const d = document.createElement("div");
-  d.className = "msg " + type;
+  if(type === "user"){
+    const d = document.createElement("div");
+    d.className = "msg user";
+    d.innerText = text;
+    chat.appendChild(d);
+    scrollDown();
+    return;
+  }
  
-  if(type === "bot"){
+  /* SPLIT TEXT + CODE BLOCKS */
+  const parts = text.split(/```/g);
  
-    // Detect code (PowerShell / script)
-    if(text.includes("$") || text.includes("Get-") || text.includes("Add-")){
+  parts.forEach((part, index) => {
  
-      d.innerHTML = `
+    // TEXT
+    if(index % 2 === 0){
+      if(part.trim()){
+        const t = document.createElement("div");
+        t.className = "msg bot";
+        t.innerHTML = marked.parse(part);
+        chat.appendChild(t);
+      }
+    }
+ 
+    // CODE BLOCK
+    else {
+      const c = document.createElement("div");
+      c.className = "msg bot";
+ 
+      c.innerHTML = `
         <div class="code-block">
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-          <pre>${text}</pre>
+          <div class="code-header">
+            PowerShell
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <pre>${escapeHtml(part.trim())}</pre>
         </div>
       `;
  
-    } else {
-      d.innerHTML = marked.parse(text);
+      chat.appendChild(c);
     }
  
-  } else {
-    d.innerText = text;
-  }
+  });
  
-  chat.appendChild(d);
+  scrollDown();
+}
+ 
+/* SCROLL */
+function scrollDown(){
   setTimeout(() => chat.scrollTop = chat.scrollHeight, 50);
 }
  
-/* SEND MESSAGE */
+/* SEND */
 function send(){
   const t = msgInput.value.trim();
   if(!t) return;
@@ -248,7 +282,7 @@ function send(){
   msgInput.value="";
 }
  
-/* ENTER KEY */
+/* ENTER */
 msgInput.addEventListener("keydown", e=>{
   if(e.key==="Enter"){
     e.preventDefault();
@@ -256,13 +290,26 @@ msgInput.addEventListener("keydown", e=>{
   }
 });
  
-/* COPY FUNCTION */
+/* COPY */
 function copyCode(btn){
-  const code = btn.parentElement.querySelector("pre").innerText;
+  const code = btn.closest(".code-block").querySelector("pre").innerText;
  
   navigator.clipboard.writeText(code).then(()=>{
     btn.innerText="Copied!";
     setTimeout(()=>btn.innerText="Copy",1500);
+  });
+}
+ 
+/* ESCAPE HTML */
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, function (m) {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[m];
   });
 }
  
