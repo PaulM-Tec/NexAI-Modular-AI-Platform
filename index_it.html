@@ -5,6 +5,7 @@
 <title>NexAI • Assist</title>
  
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
  
 <style>
 html, body {
@@ -35,12 +36,14 @@ html, body {
   background:#252542;
   border-radius:16px;
   overflow:hidden;
+  box-shadow:0 8px 30px rgba(0,0,0,0.6);
 }
 .header{
   padding:14px;
   text-align:center;
   background:linear-gradient(90deg,#0078d7,#00c6ff);
   color:white;
+  font-weight:bold;
 }
 .chat{
   flex:1;
@@ -59,7 +62,7 @@ html, body {
   border-radius:16px;
   padding:12px;
   font-size:14px;
-  word-wrap:break-word;
+  overflow-wrap:break-word;
 }
  
 .user{
@@ -73,25 +76,35 @@ html, body {
   align-self:flex-start;
 }
  
-/* FIXED CODE BLOCK */
+.msg img{
+  max-width:100%;
+  border-radius:10px;
+  margin-top:6px;
+}
+ 
+/* CODE BLOCK FIX */
 .code-block{
-  margin-top:8px;
   background:#111;
-  border-radius:8px;
+  border-radius:10px;
+  margin-top:6px;
   overflow:hidden;
 }
+ 
 .code-header{
   display:flex;
   justify-content:space-between;
   background:#333;
   padding:6px;
+  font-size:12px;
 }
+ 
 .copy-btn{
   background:#0078d7;
   color:white;
   border:none;
   cursor:pointer;
   padding:2px 8px;
+  border-radius:6px;
 }
  
 /* CRITICAL FIX */
@@ -118,6 +131,49 @@ textarea{
   color:white;
   border:none;
   border-radius:12px;
+  resize:none;
+  font-size:14px;
+  max-height:120px;
+  overflow-y:auto;
+}
+button{
+  padding:10px 14px;
+  background:#0078d7;
+  color:white;
+  border:none;
+  border-radius:20px;
+  cursor:pointer;
+  flex-shrink:0;
+}
+.upload-btn{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  min-height:42px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+  padding:0;
+}
+ 
+/* MOBILE */
+@media (max-width:600px){
+  .wrapper{
+    height:100%;
+    align-items:stretch;
+  }
+  .app{
+    height:100%;
+    max-width:100%;
+    border-radius:0;
+    box-shadow:none;
+  }
+  body{
+    display:flex;
+    flex-direction:column;
+  }
 }
 </style>
 </head>
@@ -134,8 +190,10 @@ textarea{
 <div id="chat" class="chat"></div>
  
 <div class="input">
-<textarea id="msg" rows="1"></textarea>
+<button class="upload-btn" onclick="selectImage()">+</button>
+<textarea id="msg" rows="1" placeholder="Ask an IT question..."></textarea>
 <button onclick="send()">Send</button>
+<input type="file" id="fileInput" style="display:none" accept="image/*">
 </div>
  
 </div>
@@ -144,13 +202,23 @@ textarea{
 <script>
  
 const chat = document.getElementById("chat");
+const msgInput = document.getElementById("msg");
 const session = Date.now();
  
-/* FIXED RENDER (single message container) */
-function add(text,type){
+window.onload = () => {
+  add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
+};
  
-  const container = document.createElement("div");
-  container.className = "msg " + type;
+msgInput.addEventListener("input", () => {
+  msgInput.style.height = "auto";
+  msgInput.style.height = msgInput.scrollHeight + "px";
+});
+ 
+/* FIXED ADD FUNCTION */
+function add(text, type){
+ 
+  const d = document.createElement("div");
+  d.className = "msg " + type;
  
   const parts = text.split(/```/g);
   let html = "";
@@ -170,13 +238,11 @@ function add(text,type){
     }
   });
  
-  container.innerHTML = html;
-  chat.appendChild(container);
- 
+  d.innerHTML = html;
+  chat.appendChild(d);
   scrollDown();
 }
  
-/* COPY */
 function copyCode(btn){
   const code = btn.closest(".code-block").querySelector("pre").innerText;
   navigator.clipboard.writeText(code);
@@ -184,14 +250,14 @@ function copyCode(btn){
  
 /* SEND */
 function send(){
-  let t=document.getElementById("msg").value.trim();
-  if(!t)return;
+  const t = msgInput.value.trim();
+  if(!t) return;
  
-  add(t,"user");
+  add(t, "user");
  
-  let typing=document.createElement("div");
-  typing.className="msg bot";
-  typing.innerText="Typing...";
+  const typing = document.createElement("div");
+  typing.className = "msg bot";
+  typing.innerText = "Typing...";
   chat.appendChild(typing);
  
   fetch("/chat",{
@@ -199,22 +265,83 @@ function send(){
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
       message:t,
+      module:"it",
       session_id:session
     })
   })
-  .then(r=>r.json())
-  .then(d=>{
+  .then(r => r.json())
+  .then(d => {
     typing.remove();
-    add(d.text,"bot");
+    add(d.text, "bot");
+  });
+ 
+  msgInput.value="";
+  msgInput.style.height="auto";
+}
+ 
+msgInput.addEventListener("keydown", e=>{
+  if(e.key==="Enter" && !e.shiftKey){
+    e.preventDefault();
+    send();
+  }
+});
+ 
+/* IMAGE (UNCHANGED) */
+function selectImage(){
+  document.getElementById("fileInput").click();
+}
+ 
+document.getElementById("fileInput").addEventListener("change", e=>{
+  const file=e.target.files[0];
+  if(!file) return;
+  handleImage(file);
+});
+ 
+document.addEventListener("paste", e=>{
+  for(let item of e.clipboardData.items){
+    if(item.type.includes("image")){
+      handleImage(item.getAsFile());
+    }
+  }
+});
+ 
+function handleImage(file){
+ 
+  const reader = new FileReader();
+ 
+  reader.onload = e=>{
+    let d=document.createElement("div");
+    d.className="msg user";
+    let img=document.createElement("img");
+    img.src=e.target.result;
+    d.appendChild(img);
+    chat.appendChild(d);
+    scrollDown();
+  };
+ 
+  reader.readAsDataURL(file);
+ 
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("session_id", session);
+ 
+  const typing = document.createElement("div");
+  typing.className="msg bot";
+  typing.innerText="Analyzing image...";
+  chat.appendChild(typing);
+ 
+  fetch("/analyze-image",{method:"POST",body:formData})
+  .then(res=>res.json())
+  .then(data=>{
+    typing.remove();
+    add(data.text, "bot");
   });
 }
  
-/* SCROLL */
 function scrollDown(){
   setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
 }
  
-/* ESCAPE */
 function escapeHtml(str){
   return str.replace(/[&<>]/g,m=>(
     {"&":"&amp;","<":"&lt;",">":"&gt;"}[m]
