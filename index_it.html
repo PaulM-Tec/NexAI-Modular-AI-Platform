@@ -5,7 +5,7 @@
 <title>NexAI • Assist</title>
  
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-/favicon.ico?v=2
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
  
 <style>
 html, body {
@@ -129,6 +129,19 @@ textarea{
   max-height:120px;
   overflow-y:auto;
 }
+ 
+/* FIXED BUTTON SIZE */
+.upload-btn{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  min-height:42px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+ 
 button{
   padding:10px 14px;
   background:#0078d7;
@@ -136,12 +149,6 @@ button{
   border:none;
   border-radius:20px;
   cursor:pointer;
-  flex-shrink:0;
-}
-.upload-btn{
-  width:42px;
-  height:42px;
-  border-radius:50%;
 }
  
 /* MOBILE */
@@ -197,7 +204,7 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
 };
  
-/* FIX 1: TEXTAREA AUTO EXPAND RESTORED */
+/* TEXTAREA GROW */
 msgInput.addEventListener("input", () => {
   msgInput.style.height = "auto";
   msgInput.style.height = msgInput.scrollHeight + "px";
@@ -261,83 +268,49 @@ function send(){
   typing.innerText = "Typing...";
   chat.appendChild(typing);
  
-  if(t){
-    fetch("/chat",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        message:t,
-        module:"it",
-        session_id:session
-      })
+  fetch("/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      message:t,
+      module:"it",
+      session_id:session
     })
-    .then(r => r.json())
-    .then(d => {
-      typing.remove();
-      add(d.text, "bot");
-    });
-  } else {
-    const formData = new FormData();
-    formData.append("image", dataURLtoFile(pendingImages[0]));
-    formData.append("session_id", session);
- 
-    fetch("/analyze-image",{method:"POST",body:formData})
-    .then(res=>res.json())
-    .then(data=>{
-      typing.remove();
-      add(data.text, "bot");
-    });
-  }
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    typing.remove();
+    add(d.text,"bot");
+  });
  
   pendingImages = [];
   msgInput.value="";
   msgInput.style.height="auto";
 }
  
-/* ENTER */
-msgInput.addEventListener("keydown", e=>{
-  if(e.key==="Enter" && !e.shiftKey){
-    e.preventDefault();
-    send();
-  }
-});
- 
-/* IMAGE */
+/* IMAGE SELECT */
 function selectImage(){
   document.getElementById("fileInput").click();
 }
  
 document.getElementById("fileInput").addEventListener("change", e=>{
-  [...e.target.files].forEach(file=>previewImage(file));
+  [...e.target.files].forEach(file=>storeImage(file));
 });
  
+/* FIXED: NO AUTO CHAT ADD */
 document.addEventListener("paste", e=>{
   for(let item of e.clipboardData.items){
     if(item.type.includes("image")){
-      previewImage(item.getAsFile());
+      storeImage(item.getAsFile());
     }
   }
 });
  
-/* FIX 2: IMAGE PREVIEW RESTORED */
-function previewImage(file){
+/* STORE ONLY (NO RENDER) */
+function storeImage(file){
   const reader = new FileReader();
   reader.onload = e=>{
-    const src = e.target.result;
- 
-    pendingImages.push(src);
- 
-    // show preview immediately
-    const d = document.createElement("div");
-    d.className="msg user";
- 
-    const img = document.createElement("img");
-    img.src = src;
- 
-    d.appendChild(img);
-    chat.appendChild(d);
- 
-    scrollDown();
+    pendingImages.push(e.target.result);
   };
   reader.readAsDataURL(file);
 }
@@ -350,13 +323,6 @@ function escapeHtml(str){
   return str.replace(/[&<>]/g,m=>(
     {"&":"&amp;","<":"&lt;",">":"&gt;"}[m]
   ));
-}
- 
-function dataURLtoFile(dataurl){
-  let arr=dataurl.split(','), mime=arr[0].match(/:(.*?);/)[1];
-  let bstr=atob(arr[1]), n=bstr.length, u8arr=new Uint8Array(n);
-  while(n--) u8arr[n]=bstr.charCodeAt(n);
-  return new File([u8arr],"image.png",{type:mime});
 }
  
 </script>
