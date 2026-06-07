@@ -2,6 +2,7 @@ import os
 import threading
 import sqlite3
 import requests
+import base64
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -16,12 +17,18 @@ from googleapiclient.discovery import build
 # INIT
 # -------------------------
 load_dotenv()
+ 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
 app = Flask(__name__)
 CORS(app)
  
 DB_PATH = os.path.join(os.getcwd(), "bookings.db")
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads")
+ 
+# Ensure upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+ 
 sessions = {}
  
 # -------------------------
@@ -30,7 +37,6 @@ sessions = {}
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
- 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS bookings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +50,6 @@ def init_db():
         date TEXT
     )
     """)
- 
     conn.commit()
     conn.close()
  
@@ -93,9 +98,8 @@ def save_booking(data):
 def send_to_slack(message):
     try:
         webhook = os.getenv("SLACK_WEBHOOK_URL")
-        if not webhook:
-            return
-        requests.post(webhook, json={"text": message}, timeout=5)
+        if webhook:
+            requests.post(webhook, json={"text": message}, timeout=5)
     except:
         pass
  
@@ -131,7 +135,6 @@ def create_calendar_event(day, time, details):
             'service_account.json',
             scopes=['https://www.googleapis.com/auth/calendar']
         )
- 
         service = build('calendar', 'v3', credentials=creds)
  
         date_obj = calculate_date(day)
@@ -140,6 +143,7 @@ def create_calendar_event(day, time, details):
             f"{date_obj.strftime('%Y-%m-%d')} {time}",
             "%Y-%m-%d %H:%M"
         )
+ 
         end = start + timedelta(hours=1)
  
         service.events().insert(
@@ -147,36 +151,67 @@ def create_calendar_event(day, time, details):
             body={
                 'summary': 'Vehicle Booking',
                 'description': f"""
-		Booking Confirmed
- 
-		Booking ID: {details['booking_id']}
- 
-		Name: {details['name']}
-		Vehicle: {details['vehicle']}
-		Email: {details['email']}
-		Phone: {details['phone']}
- 
-		Day: {details['day']}
-		Date: {details['date']}
-		Time: {details['time']}
- 
-		Thank you for using NexAI Ops
-		""",
+Booking ID: {details['booking_id']}
+Name: {details['name']}
+Vehicle: {details['vehicle']}
+Email: {details['email']}
+Phone: {details['phone']}
+Day: {details['day']}
+Date: {details['date']}
+Time: {details['time']}
+""",
                 'start': {'dateTime': start.isoformat(), 'timeZone': 'Africa/Johannesburg'},
                 'end': {'dateTime': end.isoformat(), 'timeZone': 'Africa/Johannesburg'}
             }
         ).execute()
+ 
     except:
         pass
  
 # -------------------------
-# OPS MODULE (VEHICLE + OPERATIONS)
+# NEW: IMAGE AI PROCESSING
+# -------------------------
+def process_it_image(image_base64):
+ 
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are NexAI Assist, an enterprise IT assistant.\n"
+                        "Analyze screenshots, errors, logs, dashboards and provide technical explanations."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Analyze this IT-related image."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=600
+        )
+ 
+        return response.choices[0].message.content
+ 
+    except:
+        return "Image analysis failed"
+ 
+# -------------------------
+# OPS MODULE
 # -------------------------
 def vehicle_ai(msg, session):
  
     text = msg.lower()
  
-    # Booking trigger
     if "book" in text or "service" in text:
         session.clear()
         days = []
@@ -196,13 +231,13 @@ def vehicle_ai(msg, session):
             )
         }
  
-    # Booking flow states
     if session.get("state") == "day" and msg.isdigit():
         idx = int(msg) - 1
         if 0 <= idx < len(session["days"]):
             session["selected_day"] = session["days"][idx]
             session["state"] = "time"
             session["times"] = ["08:00","10:00","13:00","15:00"]
+ 
             return {"text": "Select time:\n" + "\n".join(
                 f"{i+1}. {t}" for i, t in enumerate(session["times"])
             )}
@@ -261,77 +296,31 @@ def vehicle_ai(msg, session):
  
         session.clear()
  
-        return {"text": f"""Booking Confirmed
+        return {"text": f"Booking confirmed\nID: {booking_id}"}
  
-	Booking ID: {booking_id}
- 
-	Name: {data['name']}
-	Vehicle: {data['vehicle']}
-	Email: {data['email']}
-	Phone: {data['phone']}
- 
-	Day: {day}
-	Date: {formatted_date}
-	Time: {time}
- 
-	Thank you for using NexAI Ops
-	"""}
- 
-    # VEHICLE AI FALLBACK
     try:
         r = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are NexAI Ops, a vehicle domain assistant.\n"
-                        "Help with car problems, diagnostics, maintenance and servicing.\n"
-                        "Do NOT answer IT questions.\n"
-                        "If question is IT-related, direct to NexAI Assist."
-                    )
-                },
-                {"role": "user", "content": msg}
-            ],
+            messages=[{"role":"user","content":msg}],
             max_tokens=400
         )
- 
         return {"text": r.choices[0].message.content}
- 
     except:
-        return {"text": "Ops unavailable"}
+        return {"text":"Ops unavailable"}
  
 # -------------------------
-# ASSIST MODULE (ENTERPRISE IT)
+# ASSIST MODULE
 # -------------------------
 def it_ai(msg):
     try:
         r = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are NexAI Assist, an enterprise IT engineering assistant.\n"
-                        "Support Microsoft 365, Entra ID, Exchange, AD and Azure.\n"
-                        "Provide complete solutions.\n"
-                        "Do NOT answer vehicle questions.\n"
-                        "If vehicle-related, direct to NexAI Ops."
-                    )
-                },
-                {"role": "user", "content": msg}
-            ],
+            messages=[{"role":"user","content":msg}],
             max_tokens=600
         )
- 
-        reply = r.choices[0].message.content
- 
-        send_to_slack(f"NexAI Assist\nQ:{msg}\nA:{reply}")
- 
-        return {"text": reply}
- 
+        return {"text": r.choices[0].message.content}
     except:
-        return {"text": "Assist unavailable"}
+        return {"text":"Assist unavailable"}
  
 # -------------------------
 # ROUTES
@@ -359,6 +348,22 @@ def chat():
  
     return jsonify(it_ai(msg))
  
+# NEW IMAGE AI ROUTE
+@app.post("/analyze-image")
+def analyze_image():
+ 
+    file = request.files.get("image")
+ 
+    if not file:
+        return {"text": "No image received"}, 400
+ 
+    image_bytes = file.read()
+    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+ 
+    response_text = process_it_image(image_base64)
+ 
+    return jsonify({"text": response_text})
+ 
 @app.route('/<path:filename>')
 def serve_static(filename):
     return send_from_directory('.', filename)
@@ -366,14 +371,15 @@ def serve_static(filename):
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory('.', 'favicon.ico')
-
+ 
+# KEEP EXISTING UPLOAD
 @app.post("/upload")
 def upload():
     file = request.files.get("image")
     if not file:
         return {"error": "no file"}, 400
  
-    path = os.path.join("uploads", file.filename)
+    path = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(path)
  
     return {"status": "ok"}
