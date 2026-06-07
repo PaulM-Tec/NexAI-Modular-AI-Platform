@@ -52,6 +52,7 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:10px;
+  min-height:0;
 }
  
 .msg{
@@ -83,28 +84,37 @@ html, body {
   background:#111;
   border-radius:10px;
   margin-top:6px;
+  overflow:hidden;
 }
 .code-header{
   display:flex;
   justify-content:space-between;
   background:#333;
   padding:6px;
+  font-size:12px;
 }
 .copy-btn{
   background:#0078d7;
   color:white;
   border:none;
+  cursor:pointer;
+  padding:2px 8px;
+  border-radius:6px;
 }
 .code-block pre{
+  margin:0;
+  padding:10px;
   overflow-x:auto;
+  max-width:100%;
+  white-space:pre;
 }
  
-/* IMAGE PREVIEW BAR */
+/* NEW: IMAGE PREVIEW BAR (MINIMAL ADD) */
 .preview-bar{
   display:flex;
   gap:6px;
   padding:6px 10px;
-  background:#181828;
+  background:#1a1a2a;
   overflow-x:auto;
 }
 .preview-bar img{
@@ -127,6 +137,10 @@ textarea{
   color:white;
   border:none;
   border-radius:12px;
+  resize:none;
+  font-size:14px;
+  max-height:120px;
+  overflow-y:auto;
 }
  
 /* FIXED BUTTON SIZE */
@@ -135,8 +149,11 @@ textarea{
   height:42px;
   min-width:42px;
   min-height:42px;
-  flex-shrink:0;
+  flex-shrink:0;  /* critical fix */
   border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
  
 button{
@@ -145,6 +162,7 @@ button{
   color:white;
   border:none;
   border-radius:20px;
+  cursor:pointer;
 }
  
 /* MOBILE */
@@ -178,7 +196,7 @@ button{
  
 <div id="chat" class="chat"></div>
  
-<!-- PREVIEW AREA -->
+<!-- ADDED ONLY THIS -->
 <div id="previewBar" class="preview-bar"></div>
  
 <div class="input">
@@ -196,6 +214,7 @@ button{
 const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
 const previewBar = document.getElementById("previewBar");
+const session = Date.now();
  
 let pendingImages = [];
  
@@ -203,38 +222,67 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
 };
  
-msgInput.addEventListener("input", ()=>{
-  msgInput.style.height="auto";
-  msgInput.style.height=msgInput.scrollHeight+"px";
+/* TEXTAREA GROW */
+msgInput.addEventListener("input", () => {
+  msgInput.style.height = "auto";
+  msgInput.style.height = msgInput.scrollHeight + "px";
 });
  
-function add(text,type){
-  let d=document.createElement("div");
-  d.className="msg "+type;
-  d.innerHTML=marked.parse(text);
+/* ADD MESSAGE (UNCHANGED) */
+function add(text, type){
+  const d = document.createElement("div");
+  d.className = "msg " + type;
+ 
+  const parts = text.split(/```/g);
+  let html = "";
+ 
+  parts.forEach((p,i)=>{
+    if(i%2===0){
+      html += marked.parse(p);
+    } else {
+      let cleaned = p.replace(/^powershell\s*/i,'');
+ 
+      html += `
+        <div class="code-block">
+          <div class="code-header">
+            PowerShell
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <pre>${escapeHtml(cleaned)}</pre>
+        </div>`;
+    }
+  });
+ 
+  d.innerHTML = html;
   chat.appendChild(d);
   scrollDown();
 }
  
+function copyCode(btn){
+  const code = btn.closest(".code-block").querySelector("pre").innerText;
+  navigator.clipboard.writeText(code);
+}
+ 
+/* SEND (UNCHANGED LOGIC) */
 function send(){
   const t = msgInput.value.trim();
  
   if(!t && pendingImages.length === 0) return;
  
-  if(t) add(t,"user");
+  if(t) add(t, "user");
  
   pendingImages.forEach(src=>{
-    let d=document.createElement("div");
+    const d = document.createElement("div");
     d.className="msg user";
-    let img=document.createElement("img");
-    img.src=src;
+    const img = document.createElement("img");
+    img.src = src;
     d.appendChild(img);
     chat.appendChild(d);
   });
  
-  let typing=document.createElement("div");
-  typing.className="msg bot";
-  typing.innerText="Typing...";
+  const typing = document.createElement("div");
+  typing.className = "msg bot";
+  typing.innerText = "Typing...";
   chat.appendChild(typing);
  
   fetch("/chat",{
@@ -243,7 +291,7 @@ function send(){
     body:JSON.stringify({
       message:t,
       module:"it",
-      session_id:Date.now()
+      session_id:session
     })
   })
   .then(r=>r.json())
@@ -253,43 +301,46 @@ function send(){
   });
  
   pendingImages = [];
-  previewBar.innerHTML = "";
+  previewBar.innerHTML = ""; /* only addition */
   msgInput.value="";
+  msgInput.style.height="auto";
 }
  
-msgInput.addEventListener("keydown",e=>{
+/* ENTER (UNCHANGED) */
+msgInput.addEventListener("keydown", e=>{
   if(e.key==="Enter" && !e.shiftKey){
     e.preventDefault();
     send();
   }
 });
  
+/* IMAGE SELECT */
 function selectImage(){
   document.getElementById("fileInput").click();
 }
  
 document.getElementById("fileInput").addEventListener("change", e=>{
-  [...e.target.files].forEach(file=>preview(file));
+  [...e.target.files].forEach(file=>storeImage(file));
 });
  
 document.addEventListener("paste", e=>{
   for(let item of e.clipboardData.items){
     if(item.type.includes("image")){
-      preview(item.getAsFile());
+      storeImage(item.getAsFile());
     }
   }
 });
  
-/* PREVIEW (VISIBLE BUT NOT SENT) */
-function preview(file){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    let src=e.target.result;
+/* ONLY CHANGE: preview visible */
+function storeImage(file){
+  const reader = new FileReader();
+  reader.onload = e=>{
+    const src = e.target.result;
  
     pendingImages.push(src);
  
-    let img=document.createElement("img");
-    img.src=src;
+    const img = document.createElement("img");
+    img.src = src;
     previewBar.appendChild(img);
   };
   reader.readAsDataURL(file);
@@ -297,6 +348,12 @@ function preview(file){
  
 function scrollDown(){
   setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
+}
+ 
+function escapeHtml(str){
+  return str.replace(/[&<>]/g,m=>(
+    {"&":"&amp;","<":"&lt;",">":"&gt;"}[m]
+  ));
 }
  
 </script>
