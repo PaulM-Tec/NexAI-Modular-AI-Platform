@@ -18,7 +18,6 @@ from googleapiclient.discovery import build
 # -------------------------
 load_dotenv()
  
-# LAZY LOAD CLIENT (NO TIMEOUT)
 client = None
 def get_client():
     global client
@@ -30,24 +29,23 @@ app = Flask(__name__)
 CORS(app)
  
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
- 
 DB_PATH = os.path.join(BASE_DIR, "bookings.db")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
  
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
  
 sessions = {}
-last_images = {}  # image memory
+last_images = {}
  
 # -------------------------
-# HEALTH (DEPLOY FIX)
+# HEALTH
 # -------------------------
 @app.get("/health")
 def health():
     return {"status": "ok"}
  
 # -------------------------
-# DATABASE
+# DB
 # -------------------------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -165,11 +163,23 @@ def process_it_image(img):
         r=get_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role":"system","content":"Analyze IT screenshots clearly."},
-                {"role":"user","content":[
-                    {"type":"text","text":"Explain this image"},
-                    {"type":"image_url","image_url":{"url":f"data:image/png;base64,{img}"}}
-                ]}
+                {
+                    "role":"system",
+                    "content":(
+                        "You are NexAI Assist, an enterprise IT assistant.\n"
+                        "ONLY analyze images related to enterprise IT:\n"
+                        "Azure, Microsoft 365, Active Directory, PowerShell, logs.\n\n"
+                        "If not IT-related, respond:\n"
+                        "'This image is not related to enterprise IT systems.'"
+                    )
+                },
+                {
+                    "role":"user",
+                    "content":[
+                        {"type":"text","text":"Explain this image"},
+                        {"type":"image_url","image_url":{"url":f"data:image/png;base64,{img}"}}
+                    ]
+                }
             ]
         )
         return r.choices[0].message.content
@@ -177,16 +187,16 @@ def process_it_image(img):
         return "Image analysis failed"
  
 # -------------------------
-# VEHICLE (UNCHANGED)
+# VEHICLE
 # -------------------------
 def vehicle_ai(msg,session):
-    # FULL ORIGINAL FLOW PRESERVED
     text=msg.lower()
  
     if "book" in text or "service" in text:
         session.clear()
         days=[]
         now=datetime.now()
+ 
         while len(days)<5:
             now+=timedelta(days=1)
             if now.weekday()<5:
@@ -201,6 +211,7 @@ def vehicle_ai(msg,session):
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
         session["times"]=["08:00","10:00","13:00","15:00"]
+ 
         return {"text":"Select time:\n"+"\n".join(
             f"{i+1}. {t}" for i,t in enumerate(session["times"])
         )}
@@ -259,7 +270,6 @@ def vehicle_ai(msg,session):
  
         return {"text":f"Booking confirmed\nID:{booking_id}"}
  
-    # fallback
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role":"user","content":msg}]
@@ -277,7 +287,7 @@ def it_ai(msg):
     return {"text":r.choices[0].message.content}
  
 # -------------------------
-# ROUTES (RESTORED)
+# ROUTES
 # -------------------------
 @app.get("/vehicle")
 def vehicle():
@@ -297,19 +307,22 @@ def chat():
     if sid not in sessions:
         sessions[sid]={}
  
-    # IMAGE FOLLOW-UP (STRICT CONTROL)
-    if any(k in msg.lower() for k in ["image","screenshot","attached","this","what","that","explain"]
- ):
+    # STRICT IMAGE DETECTION
+    image_keywords = ["image","screenshot","attached","uploaded"]
+ 
+    if any(word in msg.lower() for word in image_keywords):
  
         if sid in last_images:
-            result = process_it_image(last_images[sid])
-            return jsonify({"text": result})
+            return jsonify({"text": process_it_image(last_images[sid])})
  
-    # prevent wrong fallback
-    return jsonify({"text": "No image found in this session. Please upload an image first."})
+        return jsonify({
+            "text": "No image found in this session. Please upload an image first."
+        })
  
+    # NORMAL FLOW RESTORED
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
+ 
     return jsonify(it_ai(msg))
  
 @app.post("/analyze-image")
