@@ -52,7 +52,19 @@ html, body {
   display:flex;
   flex-direction:column;
   gap:10px;
-  min-height:0;
+}
+ 
+/* NEW preview bar */
+.preview-bar{
+  display:flex;
+  gap:6px;
+  padding:6px 10px;
+  background:#181828;
+  overflow-x:auto;
+}
+.preview-bar img{
+  height:50px;
+  border-radius:6px;
 }
  
 .msg{
@@ -61,7 +73,6 @@ html, body {
   border-radius:16px;
   padding:12px;
   font-size:14px;
-  overflow-wrap:break-word;
 }
 .user{
   background:#0078d7;
@@ -73,50 +84,7 @@ html, body {
   color:white;
   align-self:flex-start;
 }
-.msg img{
-  max-width:100%;
-  border-radius:10px;
-  margin-top:6px;
-}
  
-/* CODE BLOCK */
-.code-block{
-  background:#111;
-  border-radius:10px;
-  margin-top:6px;
-  overflow:hidden;
-}
-.code-header{
-  display:flex;
-  justify-content:space-between;
-  background:#333;
-  padding:6px;
-  font-size:12px;
-}
-.copy-btn{
-  background:#0078d7;
-  color:white;
-  border:none;
-  cursor:pointer;
-  padding:2px 8px;
-  border-radius:6px;
-}
-.code-block pre{
-  margin:0;
-  padding:10px;
-  overflow-x:auto;
-  max-width:100%;
-  white-space:pre;
-}
- 
-/* INPUT */
-.input{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:10px;
-  background:#111;
-}
 textarea{
   flex:1;
   padding:10px;
@@ -126,48 +94,33 @@ textarea{
   border-radius:12px;
   resize:none;
   font-size:14px;
-  max-height:120px;
-  overflow-y:auto;
 }
  
-/* FIXED BUTTON SIZE */
+/* FIXED BUTTON */
 .upload-btn{
   width:42px;
   height:42px;
   min-width:42px;
   min-height:42px;
+  flex-shrink:0;
   border-radius:50%;
+}
+ 
+.input{
   display:flex;
-  align-items:center;
-  justify-content:center;
+  gap:8px;
+  padding:10px;
+  background:#111;
 }
  
 button{
-  padding:10px 14px;
   background:#0078d7;
   color:white;
   border:none;
   border-radius:20px;
-  cursor:pointer;
+  padding:10px;
 }
  
-/* MOBILE */
-@media (max-width:600px){
-  .wrapper{
-    height:100%;
-    align-items:stretch;
-  }
-  .app{
-    height:100%;
-    max-width:100%;
-    border-radius:0;
-    box-shadow:none;
-  }
-  body{
-    display:flex;
-    flex-direction:column;
-  }
-}
 </style>
 </head>
  
@@ -181,6 +134,9 @@ button{
 <div class="header">⚡ NexAI Assist</div>
  
 <div id="chat" class="chat"></div>
+ 
+<!-- preview area -->
+<div id="previewBar" class="preview-bar"></div>
  
 <div class="input">
 <button class="upload-btn" onclick="selectImage()">+</button>
@@ -196,133 +152,88 @@ button{
  
 const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
-const session = Date.now();
+const previewBar = document.getElementById("previewBar");
  
 let pendingImages = [];
  
-window.onload = () => {
-  add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
-};
- 
-/* TEXTAREA GROW */
-msgInput.addEventListener("input", () => {
-  msgInput.style.height = "auto";
-  msgInput.style.height = msgInput.scrollHeight + "px";
+msgInput.addEventListener("input", ()=>{
+  msgInput.style.height="auto";
+  msgInput.style.height=msgInput.scrollHeight+"px";
 });
  
-/* ADD MESSAGE */
-function add(text, type){
- 
-  const d = document.createElement("div");
-  d.className = "msg " + type;
- 
-  const parts = text.split(/```/g);
-  let html = "";
- 
-  parts.forEach((p,i)=>{
-    if(i%2===0){
-      html += marked.parse(p);
-    } else {
-      let cleaned = p.replace(/^powershell\s*/i,'');
- 
-      html += `
-        <div class="code-block">
-          <div class="code-header">
-            PowerShell
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-          </div>
-          <pre>${escapeHtml(cleaned)}</pre>
-        </div>`;
-    }
-  });
- 
-  d.innerHTML = html;
+function add(text,type){
+  let d=document.createElement("div");
+  d.className="msg "+type;
+  d.innerHTML=marked.parse(text);
   chat.appendChild(d);
-  scrollDown();
+  chat.scrollTop=chat.scrollHeight;
 }
  
-function copyCode(btn){
-  const code = btn.closest(".code-block").querySelector("pre").innerText;
-  navigator.clipboard.writeText(code);
-}
- 
-/* SEND */
 function send(){
-  const t = msgInput.value.trim();
+  let t=msgInput.value.trim();
+  if(!t && pendingImages.length===0) return;
  
-  if(!t && pendingImages.length === 0) return;
- 
-  if(t) add(t, "user");
+  if(t) add(t,"user");
  
   pendingImages.forEach(src=>{
-    const d = document.createElement("div");
+    let d=document.createElement("div");
     d.className="msg user";
-    const img = document.createElement("img");
-    img.src = src;
+    let img=document.createElement("img");
+    img.src=src;
+    img.style.maxWidth="100%";
     d.appendChild(img);
     chat.appendChild(d);
   });
  
-  const typing = document.createElement("div");
-  typing.className = "msg bot";
-  typing.innerText = "Typing...";
-  chat.appendChild(typing);
+  add("Typing...","bot");
  
   fetch("/chat",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      message:t,
-      module:"it",
-      session_id:session
-    })
+    body:JSON.stringify({message:t})
   })
   .then(r=>r.json())
-  .then(d=>{
-    typing.remove();
-    add(d.text,"bot");
-  });
+  .then(d=>add(d.text,"bot"));
  
-  pendingImages = [];
+  pendingImages=[];
+  previewBar.innerHTML="";
   msgInput.value="";
-  msgInput.style.height="auto";
 }
  
-/* IMAGE SELECT */
+msgInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter" && !e.shiftKey){
+    e.preventDefault();
+    send();
+  }
+});
+ 
 function selectImage(){
   document.getElementById("fileInput").click();
 }
  
-document.getElementById("fileInput").addEventListener("change", e=>{
-  [...e.target.files].forEach(file=>storeImage(file));
+document.getElementById("fileInput").addEventListener("change",e=>{
+  [...e.target.files].forEach(file=>preview(file));
 });
  
-/* FIXED: NO AUTO CHAT ADD */
-document.addEventListener("paste", e=>{
+document.addEventListener("paste",e=>{
   for(let item of e.clipboardData.items){
     if(item.type.includes("image")){
-      storeImage(item.getAsFile());
+      preview(item.getAsFile());
     }
   }
 });
  
-/* STORE ONLY (NO RENDER) */
-function storeImage(file){
-  const reader = new FileReader();
-  reader.onload = e=>{
-    pendingImages.push(e.target.result);
+function preview(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    let src=e.target.result;
+    pendingImages.push(src);
+ 
+    let img=document.createElement("img");
+    img.src=src;
+    previewBar.appendChild(img);
   };
   reader.readAsDataURL(file);
-}
- 
-function scrollDown(){
-  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
-}
- 
-function escapeHtml(str){
-  return str.replace(/[&<>]/g,m=>(
-    {"&":"&amp;","<":"&lt;",">":"&gt;"}[m]
-  ));
 }
  
 </script>
