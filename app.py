@@ -17,8 +17,8 @@ from googleapiclient.discovery import build
 # INIT
 # -------------------------
 load_dotenv()
- 
 client = None
+ 
 def get_client():
     global client
     if client is None:
@@ -31,7 +31,6 @@ CORS(app)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "bookings.db")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
- 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
  
 sessions = {}
@@ -136,15 +135,12 @@ def create_calendar_event(day,time,data):
             scopes=['https://www.googleapis.com/auth/calendar']
         )
         service=build('calendar','v3',credentials=creds)
- 
         date_obj=calculate_date(day)
- 
         start=datetime.strptime(
             f"{date_obj.strftime('%Y-%m-%d')} {time}",
             "%Y-%m-%d %H:%M"
         )
         end=start+timedelta(hours=1)
- 
         service.events().insert(
             calendarId=os.getenv("CALENDAR_ID"),
             body={
@@ -157,7 +153,7 @@ def create_calendar_event(day,time,data):
         pass
  
 # -------------------------
-# IMAGE AI (UNCHANGED ✅)
+# IMAGE AI
 # -------------------------
 def process_it_image(img):
     try:
@@ -188,66 +184,52 @@ def process_it_image(img):
         return "Image analysis failed"
  
 # -------------------------
-# VEHICLE (UNCHANGED ✅)
+# VEHICLE
 # -------------------------
 def vehicle_ai(msg,session):
     text=msg.lower()
- 
     if "book" in text or "service" in text:
         session.clear()
         days=[]
         now=datetime.now()
- 
         while len(days)<5:
             now+=timedelta(days=1)
             if now.weekday()<5:
                 days.append(now.strftime("%A"))
- 
         session["state"]="day"
         session["days"]=days
- 
         return {"text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))}
- 
     if session.get("state")=="day" and msg.isdigit():
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
         session["times"]=["08:00","10:00","13:00","15:00"]
- 
         return {"text":"Select time:\n"+"\n".join(
             f"{i+1}. {t}" for i,t in enumerate(session["times"])
         )}
- 
     if session.get("state")=="time" and msg.isdigit():
         session["selected_time"]=session["times"][int(msg)-1]
         session["state"]="name"
         return {"text":"Enter name:"}
- 
     if session.get("state")=="name":
         session["name"]=msg
         session["state"]="vehicle"
         return {"text":"Enter vehicle:"}
- 
     if session.get("state")=="vehicle":
         session["vehicle"]=msg
         session["state"]="email"
         return {"text":"Enter email:"}
- 
     if session.get("state")=="email":
         session["email"]=msg
         session["state"]="phone"
         return {"text":"Enter phone:"}
- 
     if session.get("state")=="phone":
         day=session["selected_day"]
         time=session["selected_time"]
- 
         if is_slot_taken(day,time):
             session.clear()
             return {"text":"⚠️ The selected time slot is already booked.\n\nPlease start a new booking and choose a different day or time."}
- 
         booking_id=generate_booking_id()
         date=calculate_date(day).strftime('%d/%m/%Y')
- 
         data={
             "booking_id":booking_id,
             "name":session["name"],
@@ -258,17 +240,13 @@ def vehicle_ai(msg,session):
             "time":time,
             "date":date
         }
- 
         save_booking(data)
         create_calendar_event(day,time,data)
- 
         threading.Thread(
             target=send_email,
             args=(data["email"],data["name"],data["vehicle"],date,time)
         ).start()
- 
         session.clear()
- 
         return {"text":f"Booking confirmed\nID:{booking_id}"}
  
     r=get_client().chat.completions.create(
@@ -278,7 +256,7 @@ def vehicle_ai(msg,session):
     return {"text":r.choices[0].message.content}
  
 # -------------------------
-# ASSIST (UNCHANGED ✅)
+# ASSIST
 # -------------------------
 def it_ai(msg):
     r=get_client().chat.completions.create(
@@ -288,16 +266,8 @@ def it_ai(msg):
     return {"text":r.choices[0].message.content}
  
 # -------------------------
-# ROUTES ✅ FIXED ONLY HERE
+# ROUTES FIX APPLIED HERE ONLY
 # -------------------------
-@app.get("/vehicle")
-def vehicle():
-    return send_from_directory(BASE_DIR, "index_vehicle.html")
- 
-@app.get("/it")
-def it():
-    return send_from_directory(BASE_DIR, "index_it.html")
- 
 @app.post("/chat")
 def chat():
     data=request.get_json()
@@ -308,19 +278,10 @@ def chat():
     if sid not in sessions:
         sessions[sid]={}
  
-    image_keywords = ["image","screenshot","attached","uploaded"]
+    # FIX: automatically use last image if present
+    if module == "it" and sid in last_images:
+        return jsonify({"text": process_it_image(last_images[sid])})
  
-    # ✅ FIX: only intercept TRUE image intent
-    if any(word in msg.lower() for word in image_keywords):
- 
-        if sid in last_images:
-            return jsonify({"text": process_it_image(last_images[sid])})
-        else:
-            return jsonify({
-                "text": "No image found in this session. Please upload an image first."
-            })
- 
-    # ✅ Normal flow untouched
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
  
@@ -330,25 +291,11 @@ def chat():
 def analyze_image():
     file=request.files.get("image")
     sid=request.form.get("session_id","default")
- 
     if not file:
         return {"text":"No image"}
- 
     img=base64.b64encode(file.read()).decode()
- 
     last_images[sid]=img
- 
     return {"text":process_it_image(img)}
- 
-@app.post("/upload")
-def upload():
-    file=request.files.get("image")
- 
-    if not file:
-        return {"error":"no file"},400
- 
-    file.save(os.path.join(UPLOAD_FOLDER,file.filename))
-    return {"status":"ok"}
  
 @app.route('/<path:filename>')
 def serve_static(filename):
@@ -364,5 +311,4 @@ def favicon():
 if __name__=="__main__":
     port=int(os.environ.get("PORT",10000))
     print(f"Running on {port}")
- 
     app.run(host="0.0.0.0",port=port,debug=False)
