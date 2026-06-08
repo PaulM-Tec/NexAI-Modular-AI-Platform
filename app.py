@@ -213,12 +213,12 @@ def process_it_image(img):
 # -------------------------
 # VEHICLE
 # -------------------------
-# Polite responses (inside domain)
-if text.strip() in ["thanks", "thank you", "thank you!", "thanks!", "ok", "okay"]:
-    return {"text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."}
-
 def vehicle_ai(msg,session):
     text=msg.lower()
+
+    # Polite responses (inside domain)
+    if text.strip() in ["thanks", "thank you", "thank you!", "thanks!", "ok", "okay"]:
+        return {"text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."}
  
     if "book" in text or "service" in text:
         session.clear()
