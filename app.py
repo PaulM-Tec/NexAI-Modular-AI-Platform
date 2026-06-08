@@ -214,31 +214,64 @@ def process_it_image(img):
 # VEHICLE
 # -------------------------
 def vehicle_ai(msg,session):
-    text=msg.lower()
-
-    # Polite responses (inside domain)
-    if text.strip() in ["thanks", "thank you", "thank you!", "thanks!", "ok", "okay"]:
-        return {"text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."}
+ 
+    text = msg.lower().strip()
+ 
+    # Conversational acknowledgements (within domain)
+    if text in ["thanks", "thank you", "thank you!", "thanks!", "ok", "okay"]:
+        return {
+            "text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."
+        }
+ 
+    # YES / CONTINUATION HANDLING (key fix)
+    if text in ["yes", "yeah", "yep", "sure", "ok", "okay"]:
+        if session.get("last_intent") == "offer_booking":
+            session["state"] = "day"
+ 
+            days = []
+            now = datetime.now()
+            while len(days) < 5:
+                now += timedelta(days=1)
+                if now.weekday() < 5:
+                    days.append(now.strftime("%A"))
+ 
+            session["days"] = days
+ 
+            return {
+                "text": "Select day:\n" + "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
+            }
+ 
+    # NO handling (keeps convo natural but within domain)
+    if text in ["no", "no thanks", "not now"]:
+        return {
+            "text": "No problem 👍 Let me know if you need any help with your vehicle."
+        }
  
     if "book" in text or "service" in text:
         session.clear()
+ 
         days=[]
         now=datetime.now()
         while len(days)<5:
             now+=timedelta(days=1)
             if now.weekday()<5:
                 days.append(now.strftime("%A"))
+ 
         session["state"]="day"
         session["days"]=days
-        return {"text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))}
+ 
+        return {
+            "text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
+        }
  
     if session.get("state")=="day" and msg.isdigit():
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
         session["times"]=["08:00","10:00","13:00","15:00"]
-        return {"text":"Select time:\n"+"\n".join(
-            f"{i+1}. {t}" for i,t in enumerate(session["times"])
-        )}
+ 
+        return {
+            "text":"Select time:\n"+"\n".join(f"{i+1}. {t}" for i,t in enumerate(session["times"]))
+        }
  
     if session.get("state")=="time" and msg.isdigit():
         session["selected_time"]=session["times"][int(msg)-1]
@@ -292,23 +325,25 @@ def vehicle_ai(msg,session):
  
         session.clear()
  
-        return {"text":f"""
-	Booking Confirmed
+        return {
+            "text":f"""
+Booking Confirmed
  
-	Booking ID: {booking_id}
-	Name: {data["name"]}
-	Vehicle: {data["vehicle"]}
-	Email: {data["email"]}
-	Phone: {data["phone"]}
+Booking ID: {booking_id}
+Name: {data["name"]}
+Vehicle: {data["vehicle"]}
+Email: {data["email"]}
+Phone: {data["phone"]}
  
-	Day: {day}
-	Date: {date}
-	Time: {time}
+Day: {day}
+Date: {date}
+Time: {time}
  
-	Thank you for using NexAI Ops
-	"""}
+Thank you for using NexAI Ops
+"""
+        }
  
-    # ADDED: DOMAIN CONSTRAINT ONLY
+    # STRUCTURED MECHANICAL RESPONSE + CONTEXT MEMORY
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -317,11 +352,11 @@ def vehicle_ai(msg,session):
                 "content":(
                     "You are a vehicle assistant.\n"
                     "ONLY respond to vehicle servicing, booking, and mechanical issues.\n\n"
-                    "Structure ALL responses like this:\n"
-                    "- Problem explanation\n"
-                    "- Possible causes (bullet list)\n"
-                    "- Recommended actions (numbered list)\n"
-                    "- Offer booking help\n\n"
+                    "Structure responses like:\n"
+                    "Problem:\n...\n\n"
+                    "Possible causes:\n- ...\n\n"
+                    "Recommended actions:\n1. ...\n\n"
+                    "Then ask if user wants to book a service.\n\n"
                     "If unrelated, respond:\n"
                     "'This module handles vehicle servicing, bookings, and mechanical-related queries only.'"
                 )
@@ -329,6 +364,10 @@ def vehicle_ai(msg,session):
             {"role":"user","content":msg}
         ]
     )
+ 
+    # SAVE INTENT FOR FOLLOW-UP
+    session["last_intent"] = "offer_booking"
+ 
     return {"text":r.choices[0].message.content}
  
 # -------------------------
