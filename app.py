@@ -213,6 +213,10 @@ def process_it_image(img):
 # -------------------------
 # VEHICLE
 # -------------------------
+# Polite responses (inside domain)
+if text.strip() in ["thanks", "thank you", "thank you!", "thanks!", "ok", "okay"]:
+    return {"text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."}
+
 def vehicle_ai(msg,session):
     text=msg.lower()
  
@@ -288,15 +292,39 @@ def vehicle_ai(msg,session):
  
         session.clear()
  
-        return {"text":f"Booking confirmed\nID:{booking_id}"}
+        return {"text":f"""
+	Booking Confirmed
+ 
+	Booking ID: {booking_id}
+	Name: {data["name"]}
+	Vehicle: {data["vehicle"]}
+	Email: {data["email"]}
+	Phone: {data["phone"]}
+ 
+	Day: {day}
+	Date: {date}
+	Time: {time}
+ 
+	Thank you for using NexAI Ops
+	"""}
  
     # ADDED: DOMAIN CONSTRAINT ONLY
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role":"system","content":
-                "Only respond to vehicle services, bookings, and mechanical issues. "
-                "Otherwise respond: 'This module handles vehicle servicing, bookings, and mechanical-related queries only.'"
+            {
+                "role":"system",
+                "content":(
+                    "You are a vehicle assistant.\n"
+                    "ONLY respond to vehicle servicing, booking, and mechanical issues.\n\n"
+                    "Structure ALL responses like this:\n"
+                    "- Problem explanation\n"
+                    "- Possible causes (bullet list)\n"
+                    "- Recommended actions (numbered list)\n"
+                    "- Offer booking help\n\n"
+                    "If unrelated, respond:\n"
+                    "'This module handles vehicle servicing, bookings, and mechanical-related queries only.'"
+                )
             },
             {"role":"user","content":msg}
         ]
