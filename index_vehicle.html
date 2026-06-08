@@ -4,7 +4,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexAI • Ops</title>
  
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.jsnk rel="icon" type="image/x-icon" href="/favicon.ico?v=:Arial, sans-serif;
+<!-- Marked (safe to keep) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+ 
+/favicon.ico?v=2
+ 
+<style>
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
   background:linear-gradient(180deg,#1e1e2f,#121220);
 }
  
@@ -17,7 +25,7 @@
   background:#111;
 }
  
-/* APP CONTAINER */
+/* APP */
 .app{
   width:95%;
   max-width:420px;
@@ -38,10 +46,9 @@
   background:linear-gradient(90deg,#0078d7,#00c6ff);
   color:white;
   font-weight:bold;
-  font-size:15px;
 }
  
-/* CHAT AREA */
+/* CHAT */
 .chat{
   flex:1;
   overflow-y:auto;
@@ -51,7 +58,7 @@
   gap:10px;
 }
  
-/* MESSAGE BUBBLES */
+/* MESSAGES */
 .msg{
   max-width:80%;
   width:fit-content;
@@ -62,7 +69,6 @@
   word-wrap:break-word;
 }
  
-/* USER MESSAGE */
 .user{
   background:#0078d7;
   color:white;
@@ -70,7 +76,6 @@
   border-bottom-right-radius:4px;
 }
  
-/* BOT MESSAGE */
 .bot{
   background:#2d2d44;
   color:white;
@@ -78,7 +83,7 @@
   border-bottom-left-radius:4px;
 }
  
-/* INPUT AREA */
+/* INPUT */
 .input{
   display:flex;
   gap:6px;
@@ -86,7 +91,6 @@
   background:#111;
 }
  
-/* INPUT FIELD */
 input{
   flex:1;
   padding:10px;
@@ -97,7 +101,6 @@ input{
   font-size:14px;
 }
  
-/* SEND BUTTON */
 button{
   padding:10px 14px;
   background:#0078d7;
@@ -107,17 +110,11 @@ button{
   cursor:pointer;
   font-weight:bold;
 }
- 
-button:hover{
-  background:#005fa3;
-}
- 
 </style>
 </head>
  
 <body>
  
-<!-- FIXED: moved OUT of style -->
 <div class="notice">
   AI-generated content may be incorrect
 </div>
@@ -148,14 +145,22 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI.\nHow can I help you today?", "bot");
 };
  
-/* ADD MESSAGE */
+/* SAFE ADD FUNCTION (NO CRASH) */
 function add(text, type){
   const d = document.createElement("div");
   d.className = "msg " + type;
  
   if(type === "bot"){
-    d.innerHTML = marked.parse(text);
-  } else {
+    try{
+      if(typeof marked !== "undefined"){
+        d.innerHTML = marked.parse(text);
+      } else {
+        d.innerText = text;
+      }
+    } catch(e){
+      d.innerText = text; // ✅ prevents blank page crash
+    }
+  } else{
     d.innerText = text;
   }
  
@@ -188,6 +193,10 @@ function send(){
   .then(d => {
     typing.remove();
     add(d.text, "bot");
+  })
+  .catch(err => {
+    typing.remove();
+    add("Error connecting to server.", "bot");
   });
  
   msgInput.value = "";
@@ -203,7 +212,7 @@ msgInput.addEventListener("keydown", e => {
  
 /* SCROLL */
 function scrollDown(){
-  setTimeout(() => chat.scrollTop = chat.scrollHeight, 50);
+  setTimeout(()=> chat.scrollTop = chat.scrollHeight, 50);
 }
  
 </script>
