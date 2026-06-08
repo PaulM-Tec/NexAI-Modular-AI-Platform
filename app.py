@@ -12,30 +12,37 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+ 
 # -------------------------
 # INIT
 # -------------------------
 load_dotenv()
 client = None
+ 
 def get_client():
     global client
     if client is None:
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     return client
+ 
 app = Flask(__name__)
 CORS(app)
+ 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "bookings.db")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+ 
 sessions = {}
 last_images = {}
+ 
 # -------------------------
 # HEALTH
 # -------------------------
 @app.get("/health")
 def health():
     return {"status": "ok"}
+ 
 # -------------------------
 # DB
 # -------------------------
@@ -57,12 +64,15 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+ 
 init_db()
+ 
 # -------------------------
 # UTIL
 # -------------------------
 def generate_booking_id():
     return f"NX-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+ 
 def calculate_date(day):
     today = datetime.now()
     days_map = {
@@ -72,6 +82,7 @@ def calculate_date(day):
     target = days_map[day.lower()]
     diff = (target - today.weekday()) % 7
     return today + timedelta(days=7 if diff == 0 else diff)
+ 
 def is_slot_taken(day,time):
     conn=sqlite3.connect(DB_PATH)
     cursor=conn.cursor()
@@ -79,6 +90,7 @@ def is_slot_taken(day,time):
     result=cursor.fetchone()
     conn.close()
     return result is not None
+ 
 def save_booking(data):
     conn=sqlite3.connect(DB_PATH)
     cursor=conn.cursor()
@@ -91,6 +103,7 @@ def save_booking(data):
     ))
     conn.commit()
     conn.close()
+ 
 # -------------------------
 # SLACK / EMAIL / CALENDAR
 # -------------------------
@@ -101,6 +114,7 @@ def send_to_slack(msg):
             requests.post(webhook,json={"text":msg})
     except:
         pass
+ 
 def send_email(email,name,vehicle,date,time):
     try:
         sg=SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
@@ -108,11 +122,12 @@ def send_email(email,name,vehicle,date,time):
             from_email=os.getenv("EMAIL_USER"),
             to_emails=email,
             subject="Booking Confirmed",
-            html_content=f"<h3>Hello {name}</h3><p>{vehicle} booked for {date} at {time}</p>"
+            html_content=f"&lt;h3&gt;Hello {name}&lt;/h3&gt;&lt;p&gt;{vehicle} booked for {date} at {time}&lt;/p&gt;"
         )
         sg.send(msg)
     except:
         pass
+ 
 def create_calendar_event(day,time,data):
     try:
         creds=service_account.Credentials.from_service_account_file(
@@ -136,8 +151,9 @@ def create_calendar_event(day,time,data):
         ).execute()
     except:
         pass
+ 
 # -------------------------
-# IMAGE AI (UNCHANGED)
+# IMAGE AI
 # -------------------------
 def process_it_image(img):
     try:
@@ -148,8 +164,7 @@ def process_it_image(img):
                     "role":"system",
                     "content":(
                         "You are NexAI Assist, an enterprise IT assistant.\n"
-                        "ONLY analyze images related to enterprise IT:\n"
-                        "Azure, Microsoft 365, Active Directory, PowerShell, logs.\n\n"
+                        "ONLY analyze images related to enterprise IT.\n"
                         "If not IT-related, respond:\n"
                         "'This image is not related to enterprise IT systems.'"
                     )
@@ -166,11 +181,13 @@ def process_it_image(img):
         return r.choices[0].message.content
     except:
         return "Image analysis failed"
+ 
 # -------------------------
-# VEHICLE (UNCHANGED ✅)
+# VEHICLE
 # -------------------------
 def vehicle_ai(msg,session):
     text=msg.lower()
+ 
     if "book" in text or "service" in text:
         session.clear()
         days=[]
@@ -182,6 +199,7 @@ def vehicle_ai(msg,session):
         session["state"]="day"
         session["days"]=days
         return {"text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))}
+ 
     if session.get("state")=="day" and msg.isdigit():
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
@@ -189,30 +207,38 @@ def vehicle_ai(msg,session):
         return {"text":"Select time:\n"+"\n".join(
             f"{i+1}. {t}" for i,t in enumerate(session["times"])
         )}
+ 
     if session.get("state")=="time" and msg.isdigit():
         session["selected_time"]=session["times"][int(msg)-1]
         session["state"]="name"
         return {"text":"Enter name:"}
+ 
     if session.get("state")=="name":
         session["name"]=msg
         session["state"]="vehicle"
         return {"text":"Enter vehicle:"}
+ 
     if session.get("state")=="vehicle":
         session["vehicle"]=msg
         session["state"]="email"
         return {"text":"Enter email:"}
+ 
     if session.get("state")=="email":
         session["email"]=msg
         session["state"]="phone"
         return {"text":"Enter phone:"}
+ 
     if session.get("state")=="phone":
         day=session["selected_day"]
         time=session["selected_time"]
+ 
         if is_slot_taken(day,time):
             session.clear()
-            return {"text":"⚠️ The selected time slot is already booked.\n\nPlease start a new booking and choose a different day or time."}
+            return {"text":"⚠️ The selected time slot is already booked.\n\nPlease start again."}
+ 
         booking_id=generate_booking_id()
         date=calculate_date(day).strftime('%d/%m/%Y')
+ 
         data={
             "booking_id":booking_id,
             "name":session["name"],
@@ -223,47 +249,70 @@ def vehicle_ai(msg,session):
             "time":time,
             "date":date
         }
+ 
         save_booking(data)
         create_calendar_event(day,time,data)
+ 
         threading.Thread(
             target=send_email,
             args=(data["email"],data["name"],data["vehicle"],date,time)
         ).start()
+ 
         session.clear()
+ 
         return {"text":f"Booking confirmed\nID:{booking_id}"}
+ 
+    # ADDED: DOMAIN CONSTRAINT ONLY
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role":"user","content":msg}]
+        messages=[
+            {"role":"system","content":
+                "Only respond to vehicle services, bookings, and mechanical issues. "
+                "Otherwise respond: 'This module handles vehicle servicing, bookings, and mechanical-related queries only.'"
+            },
+            {"role":"user","content":msg}
+        ]
     )
     return {"text":r.choices[0].message.content}
+ 
 # -------------------------
-# ASSIST (UNCHANGED)
+# ASSIST (IT)
 # -------------------------
 def it_ai(msg):
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role":"user","content":msg}]
+        messages=[
+            {"role":"system","content":
+                "Strictly answer enterprise IT queries only including Azure, Entra, RBAC, NSG, Key Vault, Automation, Storage, App Service, Azure SQL, DHCP, DNS, AD Sync, GPO, Clustering, DFS, Exchange, Intune, Purview, Power BI, Security, SharePoint, Teams. "
+                "Otherwise respond: 'This request is outside enterprise IT support scope.'"
+            },
+            {"role":"user","content":msg}
+        ]
     )
     return {"text":r.choices[0].message.content}
+ 
 # -------------------------
-# ROUTES FIXED ONLY HERE
+# ROUTES
 # -------------------------
-@app.get("/vehicle")
-def vehicle():
-    return send_from_directory(BASE_DIR, "index_vehicle.html")
-@app.get("/it")
-def it():
-    return send_from_directory(BASE_DIR, "index_it.html")
 @app.post("/chat")
 def chat():
     data=request.get_json()
     msg=data.get("message","")
     module=data.get("module","it")
     sid=data.get("session_id","default")
+ 
     if sid not in sessions:
         sessions[sid]={}
+ 
+    # ADDED: AUTO IMAGE USE (no removal)
+    if module == "it" and sid in last_images:
+        try:
+            return jsonify({"text": process_it_image(last_images[sid])})
+        except:
+            pass
+ 
     image_keywords = ["image","screenshot","attached","uploaded"]
-    # FIX: only intercept TRUE image intent
+ 
     if any(word in msg.lower() for word in image_keywords):
         if sid in last_images:
             return jsonify({"text": process_it_image(last_images[sid])})
@@ -271,10 +320,12 @@ def chat():
             return jsonify({
                 "text": "No image found in this session. Please upload an image first."
             })
-    # Normal flow untouched
+ 
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
+ 
     return jsonify(it_ai(msg))
+ 
 @app.post("/analyze-image")
 def analyze_image():
     file=request.files.get("image")
@@ -284,6 +335,7 @@ def analyze_image():
     img=base64.b64encode(file.read()).decode()
     last_images[sid]=img
     return {"text":process_it_image(img)}
+ 
 @app.post("/upload")
 def upload():
     file=request.files.get("image")
@@ -291,16 +343,19 @@ def upload():
         return {"error":"no file"},400
     file.save(os.path.join(UPLOAD_FOLDER,file.filename))
     return {"status":"ok"}
+ 
 @app.route('/<path:filename>')
 def serve_static(filename):
     return send_from_directory(BASE_DIR, filename)
+ 
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(BASE_DIR,'favicon.ico')
+ 
 # -------------------------
 # RUN
 # -------------------------
 if __name__=="__main__":
     port=int(os.environ.get("PORT",10000))
     print(f"Running on {port}")
-    app.run(host="0.0.0.0",port=port,debug=False)
+    app.run(host="0.0.0.0",port=port, debug=False)
