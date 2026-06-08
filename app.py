@@ -190,75 +190,131 @@ def process_it_image(img):
 # VEHICLE
 # -------------------------
 def vehicle_ai(msg,session):
+ 
     text = msg.lower().strip()
-    # Conversational acknowledgements (within domain)
-    if text in ["thanks", "thank you", "thank you!", "thanks!", "ok", "okay"]:
+ 
+    # LIGHTWEIGHT NLP (FAST - NO PERFORMANCE IMPACT)
+    def detect_intent(text):
+        if any(w in text for w in ["cancel","stop","abort"]):
+            return "cancel"
+ 
+        if any(w in text for w in ["reschedule","change","move","another time"]):
+            return "reschedule"
+ 
+        if any(w in text for w in ["yes","yeah","yep","sure","ok"]):
+            return "confirm"
+ 
+        if any(w in text for w in ["no","not now","no thanks"]):
+            return "decline"
+ 
+        if any(w in text for w in ["thanks","thank you"]):
+            return "thanks"
+ 
+        return "unknown"
+ 
+    intent = detect_intent(text)
+ 
+    # Conversational handling
+    if intent == "thanks":
         return {
             "text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."
         }
-    # YES / CONTINUATION HANDLING (key fix)
-    if text in ["yes", "yeah", "yep", "sure", "ok", "okay"]:
-        if session.get("last_intent") == "offer_booking":
-            session["state"] = "day"
-            days = []
-            now = datetime.now()
-            while len(days) < 5:
-                now += timedelta(days=1)
-                if now.weekday() < 5:
-                    days.append(now.strftime("%A"))
-            session["days"] = days
-            return {
-                "text": "Select day:\n" + "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
-            }
-    # NO handling (keeps convo natural but within domain)
-    if text in ["no", "no thanks", "not now"]:
+ 
+    if intent == "cancel":
+        session.clear()
         return {
-            "text": "No problem 👍 Let me know if you need any help with your vehicle."
+            "text": "No problem 👍 I've cancelled the current process.\n\nLet me know if you'd like to start a new booking."
         }
+ 
+    if intent == "reschedule":
+        session.clear()
+        return {
+            "text": "Sure 👍 Let's set up a new booking.\n\nType 'book service' to begin."
+        }
+ 
+    if intent == "confirm":
+        if session.get("last_intent") == "offer_booking" or "state" not in session:
+ 
+            session["state"] = "day"
+ 
+            days=[]
+            now=datetime.now()
+            while len(days)<5:
+                now+=timedelta(days=1)
+                if now.weekday()<5:
+                    days.append(now.strftime("%A"))
+ 
+            session["days"]=days
+ 
+            return {
+                "text":"Great 👍 Let's get that booked.\n\nSelect day:\n" +
+                       "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
+            }
+ 
+    if intent == "decline":
+        return {
+            "text": "No problem 👍 If you need help later, just let me know."
+        }
+ 
+    # Booking trigger
     if "book" in text or "service" in text:
         session.clear()
+ 
         days=[]
         now=datetime.now()
         while len(days)<5:
             now+=timedelta(days=1)
             if now.weekday()<5:
                 days.append(now.strftime("%A"))
+ 
         session["state"]="day"
         session["days"]=days
+ 
         return {
             "text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
         }
+ 
+    # Existing flow (UNCHANGED)
     if session.get("state")=="day" and msg.isdigit():
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
         session["times"]=["08:00","10:00","13:00","15:00"]
+ 
         return {
             "text":"Select time:\n"+"\n".join(f"{i+1}. {t}" for i,t in enumerate(session["times"]))
         }
+ 
     if session.get("state")=="time" and msg.isdigit():
         session["selected_time"]=session["times"][int(msg)-1]
         session["state"]="name"
         return {"text":"Enter name:"}
+ 
     if session.get("state")=="name":
         session["name"]=msg
         session["state"]="vehicle"
         return {"text":"Enter vehicle:"}
+ 
     if session.get("state")=="vehicle":
         session["vehicle"]=msg
         session["state"]="email"
         return {"text":"Enter email:"}
+ 
     if session.get("state")=="email":
         session["email"]=msg
         session["state"]="phone"
         return {"text":"Enter phone:"}
+ 
     if session.get("state")=="phone":
         day=session["selected_day"]
         time=session["selected_time"]
+ 
         if is_slot_taken(day,time):
             session.clear()
             return {"text":"⚠️ The selected time slot is already booked.\n\nPlease start again."}
+ 
         booking_id=generate_booking_id()
         date=calculate_date(day).strftime('%d/%m/%Y')
+ 
         data={
             "booking_id":booking_id,
             "name":session["name"],
@@ -269,28 +325,37 @@ def vehicle_ai(msg,session):
             "time":time,
             "date":date
         }
+ 
         save_booking(data)
         create_calendar_event(day,time,data)
+ 
         threading.Thread(
             target=send_email,
             args=(data["email"],data["name"],data["vehicle"],date,time)
         ).start()
+ 
         session.clear()
+ 
+        # FIXED STRUCTURED OUTPUT (MARKDOWN)
         return {
             "text":f"""
-Booking Confirmed
-Booking ID: {booking_id}
-Name: {data["name"]}
-Vehicle: {data["vehicle"]}
-Email: {data["email"]}
-Phone: {data["phone"]}
-Day: {day}
-Date: {date}
-Time: {time}
+### Booking Confirmed
+ 
+**Booking ID:** {booking_id} 
+**Name:** {data["name"]} 
+**Vehicle:** {data["vehicle"]} 
+**Email:** {data["email"]} 
+**Phone:** {data["phone"]} 
+ 
+**Day:** {day} 
+**Date:** {date} 
+**Time:** {time} 
+ 
 Thank you for using NexAI Ops
 """
         }
-    # STRUCTURED MECHANICAL RESPONSE + CONTEXT MEMORY
+ 
+    # AI FALLBACK (NOW CONVERSATIONAL, NOT RIGID)
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -298,21 +363,19 @@ Thank you for using NexAI Ops
                 "role":"system",
                 "content":(
                     "You are a vehicle assistant.\n"
-                    "ONLY respond to vehicle servicing, booking, and mechanical issues.\n\n"
-                    "Structure responses like:\n"
-                    "Problem:\n...\n\n"
-                    "Possible causes:\n- ...\n\n"
-                    "Recommended actions:\n1. ...\n\n"
-                    "Then ask if user wants to book a service.\n\n"
-                    "If unrelated, respond:\n"
-                    "'This module handles vehicle servicing, bookings, and mechanical-related queries only.'"
+                    "Stay within vehicle servicing and booking context.\n\n"
+                    "If user input is conversational (cancel, unsure, informal), respond naturally.\n\n"
+                    "For vehicle issues:\n"
+                    "Problem\nPossible causes\nRecommended actions\n\n"
+                    "Then offer booking help."
                 )
             },
             {"role":"user","content":msg}
         ]
     )
-    # SAVE INTENT FOR FOLLOW-UP
+ 
     session["last_intent"] = "offer_booking"
+ 
     return {"text":r.choices[0].message.content}
 # -------------------------
 # ASSIST (IT)
