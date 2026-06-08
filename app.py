@@ -374,9 +374,15 @@ Thank you for using NexAI Ops
         ]
     )
  
-    session["last_intent"] = "offer_booking"
+    response_text = r.choices[0].message.content
  
-    return {"text":r.choices[0].message.content}
+    # ONLY set booking intent if AI actually suggests booking
+    if "book" in response_text.lower():
+        session["last_intent"] = "offer_booking"
+    else:
+        session.pop("last_intent", None)  # prevents looping
+ 
+    return {"text": response_text}
 # -------------------------
 # ASSIST (IT)
 # -------------------------
