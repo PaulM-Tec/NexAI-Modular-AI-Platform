@@ -193,11 +193,29 @@ def vehicle_ai(msg,session):
  
     text = msg.lower().strip()
  
-    # LIGHTWEIGHT NLP (FIXED PRIORITY + SMART HANDLING)
+    # PRIORITY FIX (YOUR MAIN BUG)
+    # Must come BEFORE NLP
+    if "book" in text and "service" in text:
+        session.clear()
+ 
+        days=[]
+        now=datetime.now()
+        while len(days)<5:
+            now+=timedelta(days=1)
+            if now.weekday()<5:
+                days.append(now.strftime("%A"))
+ 
+        session["state"]="day"
+        session["days"]=days
+ 
+        return {
+            "text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
+        }
+ 
+    # LIGHTWEIGHT NLP (FIXED)
     def detect_intent(text):
  
-        # PRIORITY: negative/cancel FIRST
-        if any(w in text for w in ["not", "don't", "dont", "cancel", "stop"]):
+        if any(w in text for w in ["not","don't","dont","cancel","stop"]):
             return "cancel"
  
         if any(w in text for w in ["reschedule","change","move","another time"]):
@@ -209,8 +227,8 @@ def vehicle_ai(msg,session):
         if any(w in text for w in ["yes","yeah","yep","sure"]):
             return "confirm"
  
-        # IMPORTANT FIX (do NOT auto-confirm)
-        if any(w in text for w in ["ok","okay"]):
+        # FIX: exact match only
+        if text in ["ok","okay"]:
             return "neutral"
  
         if any(w in text for w in ["thanks","thank you"]):
@@ -220,7 +238,7 @@ def vehicle_ai(msg,session):
  
     intent = detect_intent(text)
  
-    # Conversational handling
+    # Conversational
     if intent == "thanks":
         return {
             "text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."
@@ -246,7 +264,7 @@ def vehicle_ai(msg,session):
     if intent == "confirm":
         if session.get("last_intent") == "offer_booking" or "state" not in session:
  
-            session["state"] = "day"
+            session["state"]="day"
  
             days=[]
             now=datetime.now()
@@ -258,7 +276,7 @@ def vehicle_ai(msg,session):
             session["days"]=days
  
             return {
-                "text":"Great 👍 Let's get that booked.\n\nSelect day:\n" +
+                "text":"Great 👍 Let's get that booked.\n\nSelect day:\n"+
                        "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
             }
  
@@ -267,7 +285,7 @@ def vehicle_ai(msg,session):
             "text": "No problem 👍 If you need help later, just let me know."
         }
  
-    # BOOKING TRIGGER (UNCHANGED)
+    # FALLBACK BOOKING TRIGGER
     if "book" in text or "service" in text:
         session.clear()
  
@@ -282,7 +300,8 @@ def vehicle_ai(msg,session):
         session["days"]=days
  
         return {
-            "text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
+            "text":"Select day:\n"+
+                   "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
         }
  
     # EXISTING FLOW (UNCHANGED)
@@ -290,9 +309,9 @@ def vehicle_ai(msg,session):
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
         session["times"]=["08:00","10:00","13:00","15:00"]
- 
         return {
-            "text":"Select time:\n"+"\n".join(f"{i+1}. {t}" for i,t in enumerate(session["times"]))
+            "text":"Select time:\n"+
+                   "\n".join(f"{i+1}. {t}" for i,t in enumerate(session["times"]))
         }
  
     if session.get("state")=="time" and msg.isdigit():
@@ -347,7 +366,6 @@ def vehicle_ai(msg,session):
  
         session.clear()
  
-        # FIXED BOOKING FORMAT (FINAL CLEAN STRUCTURE)
         return {
             "text":f"""
 ### Booking Confirmed
@@ -368,7 +386,7 @@ Thank you for using NexAI Ops
 """
         }
  
-    # AI FALLBACK (FIXED PROMPT ORDER)
+    # AI FALLBACK
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -376,11 +394,8 @@ Thank you for using NexAI Ops
                 "role":"system",
                 "content":(
                     "You are a vehicle assistant.\n"
-                    "Stay within vehicle servicing and booking context.\n\n"
-                    "Always FIRST explain the issue clearly.\n"
-                    "Then list possible causes and actions.\n"
-                    "ONLY AFTER explaining, ask if the user wants to book a service.\n"
-                    "Do NOT jump directly into booking.\n"
+                    "Explain first, then suggest booking.\n"
+                    "DO NOT jump straight into booking.\n"
                 )
             },
             {"role":"user","content":msg}
@@ -389,13 +404,12 @@ Thank you for using NexAI Ops
  
     response_text = r.choices[0].message.content
  
-    # FIXED INTENT CONTROL (NO LOOPING)
     if "book" in response_text.lower():
         session["last_intent"] = "offer_booking"
     else:
         session.pop("last_intent", None)
  
-    return {"text": response_text}
+    return {"text":response_text}
 
 # -------------------------
 # ASSIST (IT)
