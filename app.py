@@ -193,8 +193,7 @@ def vehicle_ai(msg,session):
  
     text = msg.lower().strip()
  
-    # PRIORITY FIX (YOUR MAIN BUG)
-    # Must come BEFORE NLP
+    # DIRECT COMMAND (FAST)
     if "book" in text and "service" in text:
         session.clear()
  
@@ -212,58 +211,50 @@ def vehicle_ai(msg,session):
             "text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
         }
  
-    # LIGHTWEIGHT NLP (FIXED)
-    def detect_intent(text):
+    # AI INTENT (REPLACES BROKEN NLP)
+    def get_intent(text):
+        try:
+            r = get_client().chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Classify the user's intent using ONLY one of these:\n"
+                            "book_service, cancel_booking, confirm, decline, gratitude, vehicle_issue, general\n"
+                            "Respond ONLY with the label."
+                        )
+                    },
+                    {"role": "user", "content": text}
+                ]
+            )
  
-        if any(w in text for w in ["not","don't","dont","cancel","stop"]):
-            return "cancel"
+            return r.choices[0].message.content.strip().lower()
  
-        if any(w in text for w in ["reschedule","change","move","another time"]):
-            return "reschedule"
+        except:
+            return "general"
  
-        if any(w in text for w in ["no","no thanks","not now"]):
-            return "decline"
+    intent = get_intent(text)
  
-        if any(w in text for w in ["yes","yeah","yep","sure"]):
-            return "confirm"
- 
-        # FIX: exact match only
-        if text in ["ok","okay"]:
-            return "neutral"
- 
-        if any(w in text for w in ["thanks","thank you"]):
-            return "thanks"
- 
-        return "unknown"
- 
-    intent = detect_intent(text)
- 
-    # Conversational
-    if intent == "thanks":
+    # HANDLE INTENTS
+    if intent == "gratitude":
         return {
             "text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."
         }
  
-    if intent == "neutral":
-        return {
-            "text": "Got it 👍 Let me know if you'd like to book a service or need help diagnosing an issue."
-        }
- 
-    if intent == "cancel":
+    if intent == "cancel_booking":
         session.clear()
         return {
             "text": "No problem 👍 I've cancelled the current process.\n\nLet me know if you'd like to start a new booking."
         }
  
-    if intent == "reschedule":
-        session.clear()
+    if intent == "decline":
         return {
-            "text": "Sure 👍 Let's set up a new booking.\n\nType 'book service' to begin."
+            "text": "No problem 👍 If you need help later, just let me know."
         }
  
     if intent == "confirm":
-        if session.get("last_intent") == "offer_booking" or "state" not in session:
- 
+        if session.get("last_intent") == "offer_booking":
             session["state"]="day"
  
             days=[]
@@ -280,31 +271,7 @@ def vehicle_ai(msg,session):
                        "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
             }
  
-    if intent == "decline":
-        return {
-            "text": "No problem 👍 If you need help later, just let me know."
-        }
- 
-    # FALLBACK BOOKING TRIGGER
-    if "book" in text or "service" in text:
-        session.clear()
- 
-        days=[]
-        now=datetime.now()
-        while len(days)<5:
-            now+=timedelta(days=1)
-            if now.weekday()<5:
-                days.append(now.strftime("%A"))
- 
-        session["state"]="day"
-        session["days"]=days
- 
-        return {
-            "text":"Select day:\n"+
-                   "\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
-        }
- 
-    # EXISTING FLOW (UNCHANGED)
+    # EXISTING BOOKING FLOW (UNCHANGED)
     if session.get("state")=="day" and msg.isdigit():
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
@@ -372,21 +339,25 @@ def vehicle_ai(msg,session):
  
 **Booking ID:** {booking_id} 
  
-**Name:** {data["name"]} 
+**Name:** {data["name"]}
+
 **Vehicle:** {data["vehicle"]} 
  
-**Email:** {data["email"]} 
+**Email:** {data["email"]}
+ 
 **Phone:** {data["phone"]} 
  
-**Day:** {day} 
-**Date:** {date} 
+**Day:** {day}
+
+**Date:** {date}
+ 
 **Time:** {time} 
  
 Thank you for using NexAI Ops
 """
         }
  
-    # AI FALLBACK
+    # AI RESPONSE (REAL UNDERSTANDING)
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -394,8 +365,11 @@ Thank you for using NexAI Ops
                 "role":"system",
                 "content":(
                     "You are a vehicle assistant.\n"
-                    "Explain first, then suggest booking.\n"
-                    "DO NOT jump straight into booking.\n"
+                    "If the user has a vehicle issue, respond with:\n"
+                    "- What the problem likely is\n"
+                    "- Possible causes\n"
+                    "- What they should do immediately (especially if urgent)\n\n"
+                    "ONLY after that, ask if they want to book.\n"
                 )
             },
             {"role":"user","content":msg}
@@ -404,6 +378,7 @@ Thank you for using NexAI Ops
  
     response_text = r.choices[0].message.content
  
+    # SMART INTENT MEMORY
     if "book" in response_text.lower():
         session["last_intent"] = "offer_booking"
     else:
