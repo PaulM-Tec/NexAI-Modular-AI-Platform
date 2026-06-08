@@ -4,16 +4,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexAI • Ops</title>
  
-<!-- Marked (safe to keep) -->
+<!-- FIXED SCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
  
-/favicon.ico?v=2
+<!-- FIXED favicon (THIS WAS YOUR TOP BUG) -->
+<link rel="icon" href="/favicon.ico?v=2">
  
 <style>
-body{
+ 
+html, body {
   margin:0;
-  font-family:Arial, sans-serif;
+  height:100%;
   background:linear-gradient(180deg,#1e1e2f,#121220);
+  font-family:Arial, sans-serif;
 }
  
 /* NOTICE */
@@ -25,12 +28,19 @@ body{
   background:#111;
 }
  
+/* FIX: wrapper removes huge bottom gap */
+.wrapper{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:calc(100% - 24px);
+}
+ 
 /* APP */
 .app{
   width:95%;
   max-width:420px;
-  height:78vh;
-  margin:20px auto;
+  height:95%;
   display:flex;
   flex-direction:column;
   background:#252542;
@@ -56,6 +66,7 @@ body{
   display:flex;
   flex-direction:column;
   gap:10px;
+  min-height:0;
 }
  
 /* MESSAGES */
@@ -73,14 +84,12 @@ body{
   background:#0078d7;
   color:white;
   align-self:flex-end;
-  border-bottom-right-radius:4px;
 }
  
 .bot{
   background:#2d2d44;
   color:white;
   align-self:flex-start;
-  border-bottom-left-radius:4px;
 }
  
 /* INPUT */
@@ -98,7 +107,6 @@ input{
   color:white;
   border:none;
   border-radius:20px;
-  font-size:14px;
 }
  
 button{
@@ -108,8 +116,8 @@ button{
   border:none;
   border-radius:20px;
   cursor:pointer;
-  font-weight:bold;
 }
+ 
 </style>
 </head>
  
@@ -119,17 +127,21 @@ button{
   AI-generated content may be incorrect
 </div>
  
-<div class="app">
+<div class="wrapper">
  
-  <div class="header">
-    ⚡ NexAI Ops
-  </div>
+  <div class="app">
  
-  <div id="chat" class="chat"></div>
+    <div class="header">
+      ⚡ NexAI Ops
+    </div>
  
-  <div class="input">
-    <input id="msg" placeholder="Ask a question or book a service..." />
-    <button onclick="send()">Send</button>
+    <div id="chat" class="chat"></div>
+ 
+    <div class="input">
+      <input id="msg" placeholder="Ask a question or book a service..." />
+      <button onclick="send()">Send</button>
+    </div>
+ 
   </div>
  
 </div>
@@ -142,25 +154,21 @@ const session = Date.now();
  
 /* GREETING */
 window.onload = () => {
-  add("👋 Hi, I'm NexAI.\nHow can I help you today?", "bot");
+  add("👋 Hi, I'm NexAI. How can I help you today?", "bot");
 };
  
-/* SAFE ADD FUNCTION (NO CRASH) */
+/* SAFE ADD */
 function add(text, type){
   const d = document.createElement("div");
   d.className = "msg " + type;
  
-  if(type === "bot"){
-    try{
-      if(typeof marked !== "undefined"){
-        d.innerHTML = marked.parse(text);
-      } else {
-        d.innerText = text;
-      }
-    } catch(e){
-      d.innerText = text; // ✅ prevents blank page crash
+  try{
+    if(type === "bot" && typeof marked !== "undefined"){
+      d.innerHTML = marked.parse(text);
+    } else {
+      d.innerText = text;
     }
-  } else{
+  } catch {
     d.innerText = text;
   }
  
@@ -189,22 +197,18 @@ function send(){
       session_id:session
     })
   })
-  .then(r => r.json())
-  .then(d => {
+  .then(r=>r.json())
+  .then(d=>{
     typing.remove();
-    add(d.text, "bot");
-  })
-  .catch(err => {
-    typing.remove();
-    add("Error connecting to server.", "bot");
+    add(d.text,"bot");
   });
  
-  msgInput.value = "";
+  msgInput.value="";
 }
  
-/* ENTER KEY */
-msgInput.addEventListener("keydown", e => {
-  if(e.key === "Enter"){
+/* ENTER */
+msgInput.addEventListener("keydown", e=>{
+  if(e.key==="Enter"){
     e.preventDefault();
     send();
   }
@@ -212,7 +216,7 @@ msgInput.addEventListener("keydown", e => {
  
 /* SCROLL */
 function scrollDown(){
-  setTimeout(()=> chat.scrollTop = chat.scrollHeight, 50);
+  setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
 }
  
 </script>
