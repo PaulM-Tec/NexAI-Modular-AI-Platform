@@ -115,19 +115,30 @@ def send_to_slack(msg):
     except:
         pass
  
+# FIXED EMAIL
 def send_email(email,name,vehicle,date,time):
     try:
         sg=SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
         msg=Mail(
             from_email=os.getenv("EMAIL_USER"),
             to_emails=email,
-            subject="Booking Confirmed",
-            html_content=f"&lt;h3&gt;Hello {name}&lt;/h3&gt;&lt;p&gt;{vehicle} booked for {date} at {time}&lt;/p&gt;"
+            subject="Vehicle Booking Confirmed",
+            html_content=f"""
+            <h3>Hello {name}</h3>
+            <p>Your booking has been confirmed</p>
+ 
+            <p><b>Vehicle:</b> {vehicle}</p>
+            <p><b>Date:</b> {date}</p>
+            <p><b>Time:</b> {time}</p>
+ 
+            <p>Thank you for using NexAI</p>
+            """
         )
         sg.send(msg)
     except:
         pass
  
+# FIXED CALENDAR STRUCTURE
 def create_calendar_event(day,time,data):
     try:
         creds=service_account.Credentials.from_service_account_file(
@@ -135,16 +146,33 @@ def create_calendar_event(day,time,data):
             scopes=['https://www.googleapis.com/auth/calendar']
         )
         service=build('calendar','v3',credentials=creds)
+ 
         date_obj=calculate_date(day)
         start=datetime.strptime(
             f"{date_obj.strftime('%Y-%m-%d')} {time}",
             "%Y-%m-%d %H:%M"
         )
         end=start+timedelta(hours=1)
+ 
         service.events().insert(
             calendarId=os.getenv("CALENDAR_ID"),
             body={
                 'summary':'Vehicle Booking',
+                'description': f"""
+Booking Confirmed
+ 
+Booking ID: {data["booking_id"]}
+Name: {data["name"]}
+Vehicle: {data["vehicle"]}
+Email: {data["email"]}
+Phone: {data["phone"]}
+ 
+Day: {data["day"]}
+Date: {data["date"]}
+Time: {data["time"]}
+ 
+Thank you for using NexAI Ops
+""",
                 'start':{'dateTime':start.isoformat(),'timeZone':'Africa/Johannesburg'},
                 'end':{'dateTime':end.isoformat(),'timeZone':'Africa/Johannesburg'}
             }
