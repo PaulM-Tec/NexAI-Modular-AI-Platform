@@ -193,19 +193,25 @@ def vehicle_ai(msg,session):
  
     text = msg.lower().strip()
  
-    # LIGHTWEIGHT NLP (FAST - NO PERFORMANCE IMPACT)
+    # LIGHTWEIGHT NLP (FIXED PRIORITY + SMART HANDLING)
     def detect_intent(text):
-        if any(w in text for w in ["cancel","stop","abort"]):
+ 
+        # PRIORITY: negative/cancel FIRST
+        if any(w in text for w in ["not", "don't", "dont", "cancel", "stop"]):
             return "cancel"
  
         if any(w in text for w in ["reschedule","change","move","another time"]):
             return "reschedule"
  
-        if any(w in text for w in ["yes","yeah","yep","sure","ok"]):
+        if any(w in text for w in ["no","no thanks","not now"]):
+            return "decline"
+ 
+        if any(w in text for w in ["yes","yeah","yep","sure"]):
             return "confirm"
  
-        if any(w in text for w in ["no","not now","no thanks"]):
-            return "decline"
+        # IMPORTANT FIX (do NOT auto-confirm)
+        if any(w in text for w in ["ok","okay"]):
+            return "neutral"
  
         if any(w in text for w in ["thanks","thank you"]):
             return "thanks"
@@ -218,6 +224,11 @@ def vehicle_ai(msg,session):
     if intent == "thanks":
         return {
             "text": "You're welcome 👍 Let me know if you need help with your vehicle or booking a service."
+        }
+ 
+    if intent == "neutral":
+        return {
+            "text": "Got it 👍 Let me know if you'd like to book a service or need help diagnosing an issue."
         }
  
     if intent == "cancel":
@@ -256,7 +267,7 @@ def vehicle_ai(msg,session):
             "text": "No problem 👍 If you need help later, just let me know."
         }
  
-    # Booking trigger
+    # BOOKING TRIGGER (UNCHANGED)
     if "book" in text or "service" in text:
         session.clear()
  
@@ -274,7 +285,7 @@ def vehicle_ai(msg,session):
             "text":"Select day:\n"+"\n".join(f"{i+1}. {d}" for i,d in enumerate(days))
         }
  
-    # Existing flow (UNCHANGED)
+    # EXISTING FLOW (UNCHANGED)
     if session.get("state")=="day" and msg.isdigit():
         session["selected_day"]=session["days"][int(msg)-1]
         session["state"]="time"
@@ -336,14 +347,16 @@ def vehicle_ai(msg,session):
  
         session.clear()
  
-        # FIXED STRUCTURED OUTPUT (MARKDOWN)
+        # FIXED BOOKING FORMAT (FINAL CLEAN STRUCTURE)
         return {
             "text":f"""
 ### Booking Confirmed
  
 **Booking ID:** {booking_id} 
+ 
 **Name:** {data["name"]} 
 **Vehicle:** {data["vehicle"]} 
+ 
 **Email:** {data["email"]} 
 **Phone:** {data["phone"]} 
  
@@ -355,7 +368,7 @@ Thank you for using NexAI Ops
 """
         }
  
-    # AI FALLBACK (NOW CONVERSATIONAL, NOT RIGID)
+    # AI FALLBACK (FIXED PROMPT ORDER)
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -364,10 +377,10 @@ Thank you for using NexAI Ops
                 "content":(
                     "You are a vehicle assistant.\n"
                     "Stay within vehicle servicing and booking context.\n\n"
-                    "If user input is conversational (cancel, unsure, informal), respond naturally.\n\n"
-                    "For vehicle issues:\n"
-                    "Problem\nPossible causes\nRecommended actions\n\n"
-                    "Then offer booking help."
+                    "Always FIRST explain the issue clearly.\n"
+                    "Then list possible causes and actions.\n"
+                    "ONLY AFTER explaining, ask if the user wants to book a service.\n"
+                    "Do NOT jump directly into booking.\n"
                 )
             },
             {"role":"user","content":msg}
@@ -376,13 +389,14 @@ Thank you for using NexAI Ops
  
     response_text = r.choices[0].message.content
  
-    # ONLY set booking intent if AI actually suggests booking
+    # FIXED INTENT CONTROL (NO LOOPING)
     if "book" in response_text.lower():
         session["last_intent"] = "offer_booking"
     else:
-        session.pop("last_intent", None)  # prevents looping
+        session.pop("last_intent", None)
  
     return {"text": response_text}
+
 # -------------------------
 # ASSIST (IT)
 # -------------------------
