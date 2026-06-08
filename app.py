@@ -294,6 +294,17 @@ def it_ai(msg):
 # -------------------------
 # ROUTES
 # -------------------------
+ 
+@app.get("/vehicle")
+def vehicle():
+    return send_from_directory(BASE_DIR, "index_vehicle.html")
+ 
+ 
+@app.get("/it")
+def it():
+    return send_from_directory(BASE_DIR, "index_it.html")
+ 
+ 
 @app.post("/chat")
 def chat():
     data=request.get_json()
@@ -304,7 +315,7 @@ def chat():
     if sid not in sessions:
         sessions[sid]={}
  
-    # ADDED: AUTO IMAGE USE (no removal)
+    # ADDITION: AUTO IMAGE USE (does not remove your logic)
     if module == "it" and sid in last_images:
         try:
             return jsonify({"text": process_it_image(last_images[sid])})
@@ -313,6 +324,7 @@ def chat():
  
     image_keywords = ["image","screenshot","attached","uploaded"]
  
+    # ORIGINAL LOGIC PRESERVED
     if any(word in msg.lower() for word in image_keywords):
         if sid in last_images:
             return jsonify({"text": process_it_image(last_images[sid])})
@@ -326,31 +338,42 @@ def chat():
  
     return jsonify(it_ai(msg))
  
+ 
 @app.post("/analyze-image")
 def analyze_image():
     file=request.files.get("image")
     sid=request.form.get("session_id","default")
+ 
     if not file:
         return {"text":"No image"}
+ 
     img=base64.b64encode(file.read()).decode()
     last_images[sid]=img
+ 
     return {"text":process_it_image(img)}
+ 
  
 @app.post("/upload")
 def upload():
     file=request.files.get("image")
+ 
     if not file:
         return {"error":"no file"},400
+ 
     file.save(os.path.join(UPLOAD_FOLDER,file.filename))
+ 
     return {"status":"ok"}
+ 
  
 @app.route('/<path:filename>')
 def serve_static(filename):
     return send_from_directory(BASE_DIR, filename)
  
+ 
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(BASE_DIR,'favicon.ico')
+ 
  
 # -------------------------
 # RUN
