@@ -239,6 +239,21 @@ function handleCopy(button, text) {
         }, 2000);
     });
 }
+function copyCode(button){
+  const code = button.closest(".code-block").querySelector("pre").innerText;
+ 
+  navigator.clipboard.writeText(code).then(() => {
+ 
+    button.textContent = "Copied";
+    button.disabled = true;
+ 
+    setTimeout(() => {
+      button.textContent = "Copy";
+      button.disabled = false;
+    }, 1500);
+ 
+  });
+}
 /* SEND (UNCHANGED LOGIC) */
 function send(){
   const t = msgInput.value.trim();
