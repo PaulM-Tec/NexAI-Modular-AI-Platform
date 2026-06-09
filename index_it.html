@@ -4,6 +4,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexAI • Assist</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
 <style>
 html, body {
@@ -222,12 +224,13 @@ function add(text, type){
             PowerShell
 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
 </div>
-<pre>${escapeHtml(cleaned)}</pre>
+<pre><code class="language-powershell">${escapeHtml(cleaned)}</code></pre>
 </div>`;
     }
   });
   d.innerHTML = html;
   chat.appendChild(d);
+  highlightCode();
   scrollDown();
 }
 function handleCopy(button, text) {
@@ -321,6 +324,18 @@ function storeImage(file){
     previewBar.appendChild(img);
   };
   reader.readAsDataURL(file);
+}
+function highlightCode(){
+  document.querySelectorAll("pre code").forEach((block) => {
+    hljs.highlightElement(block);
+ 
+    const lines = block.innerHTML.split('\n');
+    block.innerHTML = lines.map((line, i) => {
+      return `<span style="display:block">
+        <span style="color:#777;margin-right:10px">${i+1}</span>${line}
+      </span>`;
+    }).join('');
+  });
 }
 function scrollDown(){
   setTimeout(()=>chat.scrollTop=chat.scrollHeight,50);
