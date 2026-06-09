@@ -395,7 +395,7 @@ def it_ai(msg):
         messages=[
             {"role":"system","content":
                 "Strictly answer enterprise IT queries only including Azure, Entra, RBAC, NSG, Key Vault, Automation, Storage, App Service, Azure SQL, DHCP, DNS, AD Sync, GPO, Clustering, DFS, Exchange, Intune, Purview, Power BI, Security, SharePoint, Teams. "
-                "Otherwise respond: 'This request is outside enterprise IT support scope.'"
+                "Always attempt to interpret the user's request as an enterprise IT problem. Only reject if it is clearly unrelated to IT."
             },
             {"role":"user","content":msg}
         ]
