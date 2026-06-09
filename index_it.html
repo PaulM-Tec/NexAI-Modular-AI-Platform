@@ -104,7 +104,7 @@ html, body {
   padding:10px;
   overflow-x:auto;
   max-width:100%;
-  white-space:pre;
+  white-space:pre-wrap;
 }
 /* NEW: IMAGE PREVIEW BAR (MINIMAL ADD) */
 .preview-bar{
@@ -327,14 +327,22 @@ function storeImage(file){
 }
 function highlightCode(){
   document.querySelectorAll("pre code").forEach((block) => {
-    hljs.highlightElement(block);
  
-    const lines = block.innerHTML.split('\n');
-    block.innerHTML = lines.map((line, i) => {
-      return `<span style="display:block">
-        <span style="color:#777;margin-right:10px">${i+1}</span>${line}
-      </span>`;
-    }).join('');
+    // FIRST: get raw text
+    const raw = block.textContent;
+ 
+    // APPLY HIGHLIGHT PROPERLY
+    const highlighted = hljs.highlight(raw, { language: "powershell" }).value;
+ 
+    // ADD LINE NUMBERS WITH COLORS PRESERVED
+    const lines = highlighted.split('\n');
+ 
+    block.innerHTML = lines.map((line, i) => `
+      <div style="display:flex">
+        <span style="color:#666;width:30px;text-align:right;margin-right:10px">${i+1}</span>
+        <span style="flex:1">${line || "&nbsp;"}</span>
+      </div>
+    `).join('');
   });
 }
 function scrollDown(){
