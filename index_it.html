@@ -7,7 +7,7 @@
 <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
  
 <style>
-/* ✅ (ALL YOUR EXISTING CSS — UNCHANGED) */
+/* (ALL EXISTING CSS — UNCHANGED) */
 html, body {
   margin:0;
   height:100%;
@@ -188,7 +188,7 @@ window.onload = () => {
   add("👋 Hi, I'm NexAI. How can I help you with IT today?", "bot");
 };
  
-/* ✅ COPY FIX (THIS WAS MISSING PROPERLY) */
+/* COPY FIX (THIS WAS MISSING PROPERLY) */
 function copyCode(button){
   const code = button.closest(".code-block").querySelector("pre").innerText;
  
@@ -196,7 +196,7 @@ function copyCode(button){
  
     const original = button.innerText;
  
-    button.innerText = "Copied ✅";
+    button.innerText = "Copied";
  
     setTimeout(() => {
       button.innerText = original;
