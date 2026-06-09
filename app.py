@@ -400,7 +400,20 @@ def it_ai(msg):
             {"role":"user","content":msg}
         ]
     )
-    return {"text":r.choices[0].message.content}
+ 
+    response = r.choices[0].message.content
+ 
+    # SLACK FIX
+    send_to_slack(f"""
+New IT Query:
+{msg}
+ 
+Response:
+{response}
+""")
+ 
+    return {"text": response}
+
 # -------------------------
 # ROUTES
 # -------------------------
