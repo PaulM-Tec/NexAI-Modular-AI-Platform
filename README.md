@@ -1,33 +1,45 @@
-# 🤖 AI Service Agent
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python" />
-  <img src="https://img.shields.io/badge/Flask-API-black?style=for-the-badge&logo=flask" />
-  <img src="https://img.shields.io/badge/NLP-DialoGPT-green?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Database-PostgreSQL-blue?style=for-the-badge&logo=postgresql" />
-  <img src="https://img.shields.io/badge/ORM-SQLAlchemy-red?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react" />
-  <img src="https://img.shields.io/badge/Language-JavaScript-yellow?style=for-the-badge&logo=javascript" />
-  <img src="https://img.shields.io/badge/Status-In--Progress-orange?style=for-the-badge" />
-</p>
+# ⚡ NexAI – Modular AI-Powered Execution Platform
  
-<p align="center">
-  <img src="https://img.shields.io/github/last-commit/PaulM-Tec/AI-Service-Agent?style=flat-square" />
-  <img src="https://img.shields.io/github/languages/top/PaulM-Tec/AI-Service-Agent?style=flat-square" />
-  <img src="https://img.shields.io/github/repo-size/PaulM-Tec/AI-Service-Agent?style=flat-square" />
-</p>
+https://img.shields.io/badge/Python-3.10+-blue
+https://img.shields.io/badge/Framework-Flask-black
+https://img.shields.io/badge/AI-OpenAI-green
+https://img.shields.io/badge/Database-PostgreSQL-blue
+https://img.shields.io/badge/ORM-SQLAlchemy-red
+https://img.shields.io/badge/Frontend-React-lightblue
  
-> Intelligent conversational AI system integrating NLP, backend APIs, and recommendation engines to simulate real-world service automation.
+https://img.shields.io/badge/Status-Active--Development-orange
  
 ---
  
-## 🧠 Overview
+NexAI is a modular AI-powered platform designed to combine **conversational intelligence** with **real-world task execution**.
  
-The **AI Service Agent** is an end-to-end intelligent assistant designed to bridge natural language interaction with real backend operations. 
-It enables users to communicate conversationally while triggering structured workflows such as service booking, recommendations, and interaction logging.
+The platform separates **AI reasoning** from **operational workflows**, enabling scalable, domain-specific modules that integrate with enterprise systems.
  
-This project demonstrates how AI can be **embedded within enterprise systems**, combining conversational intelligence with backend decision-making.
+## 📸 Demo
  
+<table>
+<tr>
+<td width="50%">
+ 
+<h3>🔎 Assist Module (Enterprise IT Support)</h3>
+ 
+<p>This example demonstrates NexAI Assist providing support for Azure Active Directory scenarios.</p>
+ 
+assets/assist-demo.png
+ 
+</td>
+ 
+<td width="50%">
+ 
+<h3>⚙️ Ops Module (Workflow Execution)</h3>
+ 
+<p>This demonstrates NexAI Ops executing a complete service booking workflow.</p>
+ 
+" width="100%"/>
+ 
+</td>
+</tr>
+</table> 
 ---
  
 ## 🚀 Key Capabilities
@@ -155,25 +167,28 @@ Service health check endpoint
  
 ---
  
-## 📈 Project Status
+## 📌 Status
  
-✅ Core system implemented (NLP + API + Recommender)  
+✅ Fully functional modular AI platform 
+🚧 Continuous refinement towards enterprise-scale readiness
 
-✅ Secure configuration and GitHub-ready  
-
-🚧 Next: microservices architecture, Docker, and production deployment  
- 
 ---
  
-## 🌍 Vision
+## 💡 Vision
  
-This project evolves toward a **scalable AI platform** capable of integrating with enterprise systems, enabling intelligent automation across user-facing and internal services.
+NexAI is designed as a:
  
+> **Modular AI-powered execution platform**
+ 
+capable of integrating intelligent decision-making directly into operational workflows across multiple domains.
+ 
+The goal is to enable AI systems that not only provide insight, but actively participate in and automate real-world processes. 
+
 ---
  
 ## 👨‍💻 Author
  
 **Paul Munhamo**  
 
-AI Enthusiast & Software Engineer
+BSc Honours IT - Software Engineer
  
