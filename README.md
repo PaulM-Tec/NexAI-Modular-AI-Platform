@@ -165,8 +165,10 @@ Service health check endpoint
  
 ---
 
-🧠 Design Philosophy
-> **NexAI is built on the principle that**:
+## 🧠 Design Philosophy
+
+> **NexAI is built on the principle that**
+
 AI should not just respond — it should act.
 By separating reasoning from execution:
 AI remains flexible and reusable
@@ -174,7 +176,8 @@ Workflows remain deterministic and auditable
 
 ---
 
-🤝 Contributing
+## 🤝 Contributing
+
 Contributions are welcome!
 Fork the repo
 Create a feature branch
@@ -185,7 +188,8 @@ Submit a Pull Request
 
 ## 📌 Status
  
-✅ Fully functional modular AI platform 
+✅ Fully functional modular AI platform
+ 
 🚧 Continuous refinement towards enterprise-scale readiness
 
 ---
