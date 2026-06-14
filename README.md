@@ -8,8 +8,6 @@
 ![React](https://img.shields.io/badge/Frontend-React-lightblue)
 ![Status](https://img.shields.io/badge/Status-Active--Development-orange)
  
-https://img.shields.io/badge/Status-Active--Development-orange
- 
 ---
  
 NexAI is a modular AI-powered platform designed to combine **conversational intelligence** with **real-world task execution**.
@@ -23,7 +21,7 @@ The platform separates **AI reasoning** from **operational workflows**, enabling
 <td width="50%">
  
 <h3>🔎 Assist Module (Enterprise IT Support)</h3>
-<p>This example demonstrates NexAI Assist providing support for Azure Active Directory scenarios.</p>
+<p>This example demonstrates NexAI Assist providing support for Exchange Online scenarios.</p>
  
 <img src="assets/assist-demo.png" width="100%" />
  
@@ -42,14 +40,14 @@ The platform separates **AI reasoning** from **operational workflows**, enabling
  
 ---
  
-## 🚀 Key Capabilities
+## 🚀 Key Features
  
-✅ Conversational AI powered by HuggingFace DialoGPT 
-✅ Intent detection for structured workflows (booking, rescheduling, support) 
-✅ RESTful API architecture using Flask 
-✅ Dynamic recommendation engine based on user data 
-✅ Persistent interaction logging for contextual memory 
-✅ Secure configuration using environment variables (`.env`) 
+✅ Modular architecture (plug-and-play AI modules)
+✅ Conversational AI (OpenAI integration)
+✅ Workflow automation engine
+✅ Enterprise-ready design (REST APIs, DB-backed)
+✅ Real-world use cases (IT support, service operations)
+✅ Clean separation of concerns (Assist vs Ops) 
  
 ---
  
@@ -166,7 +164,25 @@ Service health check endpoint
 - Recommendation-driven platforms  
  
 ---
- 
+
+🧠 Design Philosophy
+> **NexAI is built on the principle that**:
+AI should not just respond — it should act.
+By separating reasoning from execution:
+AI remains flexible and reusable
+Workflows remain deterministic and auditable
+
+---
+
+🤝 Contributing
+Contributions are welcome!
+Fork the repo
+Create a feature branch
+Commit changes
+Submit a Pull Request
+
+---
+
 ## 📌 Status
  
 ✅ Fully functional modular AI platform 
@@ -190,5 +206,5 @@ The goal is to enable AI systems that not only provide insight, but actively par
  
 **Paul Munhamo**  
 
-BSc Honours IT - Software Engineer
+Full Stack Software Engineer | AI Systems Developer
  
