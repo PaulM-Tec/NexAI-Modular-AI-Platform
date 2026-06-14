@@ -1,11 +1,12 @@
 # ⚡ NexAI – Modular AI-Powered Execution Platform
  
-https://img.shields.io/badge/Python-3.10+-blue
-https://img.shields.io/badge/Framework-Flask-black
-https://img.shields.io/badge/AI-OpenAI-green
-https://img.shields.io/badge/Database-PostgreSQL-blue
-https://img.shields.io/badge/ORM-SQLAlchemy-red
-https://img.shields.io/badge/Frontend-React-lightblue
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Flask](https://img.shields.io/badge/Framework-Flask-black)
+![OpenAI](https://img.shields.io/badge/AI-OpenAI-green)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-blue)
+![SQLAlchemy](https://img.shields.io/badge/ORM-SQLAlchemy-red)
+![React](https://img.shields.io/badge/Frontend-React-lightblue)
+![Status](https://img.shields.io/badge/Status-Active--Development-orange)
  
 https://img.shields.io/badge/Status-Active--Development-orange
  
@@ -14,7 +15,7 @@ https://img.shields.io/badge/Status-Active--Development-orange
 NexAI is a modular AI-powered platform designed to combine **conversational intelligence** with **real-world task execution**.
  
 The platform separates **AI reasoning** from **operational workflows**, enabling scalable, domain-specific modules that integrate with enterprise systems.
- 
+
 ## 📸 Demo
  
 <table>
@@ -22,24 +23,23 @@ The platform separates **AI reasoning** from **operational workflows**, enabling
 <td width="50%">
  
 <h3>🔎 Assist Module (Enterprise IT Support)</h3>
- 
 <p>This example demonstrates NexAI Assist providing support for Azure Active Directory scenarios.</p>
  
-assets/assist-demo.png
+<img src="assets/assist-demo.png" width="100%" />
  
 </td>
  
 <td width="50%">
  
 <h3>⚙️ Ops Module (Workflow Execution)</h3>
- 
 <p>This demonstrates NexAI Ops executing a complete service booking workflow.</p>
  
-assets/ops-demo.png
+<img src="assets/ops-demo.png" width="100%" />
  
 </td>
 </tr>
-</table> 
+</table>
+ 
 ---
  
 ## 🚀 Key Capabilities
