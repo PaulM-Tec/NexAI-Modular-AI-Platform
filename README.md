@@ -35,7 +35,7 @@ assets/assist-demo.png
  
 <p>This demonstrates NexAI Ops executing a complete service booking workflow.</p>
  
-" width="100%"/>
+assets/ops-demo.png
  
 </td>
 </tr>
