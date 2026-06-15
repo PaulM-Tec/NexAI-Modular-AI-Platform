@@ -560,7 +560,7 @@ def chat():
     msg=data.get("message","")
     module=data.get("module","it")
     sid=data.get("session_id","default")
-    if sid not in sessions:f
+    if sid not in sessions:
         sessions[sid]={}
     # ADDITION: AUTO IMAGE USE (does not remove your logic)
     if module == "it" and sid in last_images:
