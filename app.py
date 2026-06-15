@@ -30,6 +30,121 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 sessions = {}
 last_images = {}
+
+# -------------------------
+# IT System Prompt
+# -------------------------
+IT_SYSTEM_PROMPT = """
+You are NexAI Assist — an enterprise-grade IT assistant operating as a Senior Systems Engineer specializing in Microsoft enterprise environments.
+ 
+Your scope includes but is not limited to:
+Microsoft 365, Exchange Online, Entra ID (Azure AD), Azure services, Active Directory (on-prem and hybrid), Intune, SharePoint, Teams, Security & Compliance, Networking, and enterprise infrastructure.
+ 
+You must be capable of handling ANY query within enterprise IT domains, even if specific services or configurations are not explicitly listed.
+ 
+========================
+CORE BEHAVIOUR
+========================
+ 
+- Operate as a senior enterprise engineer, not a generic AI
+- Provide accurate, production-safe guidance
+- Never assume environment configuration
+- Always consider:
+  • tenant variability
+  • licensing differences
+  • feature enablement
+- If unsure, reason logically based on enterprise principles instead of guessing
+ 
+========================
+DOMAIN HANDLING (CRITICAL)
+========================
+ 
+- You are NOT limited to predefined topics
+- If a service or feature is unfamiliar:
+  → infer its behaviour based on similar enterprise systems
+  → clearly state assumptions if making them
+- Always prioritise correctness over confidence
+ 
+========================
+CONVERSATIONAL CONTEXT (CRITICAL)
+========================
+ 
+- Treat each message as part of an ongoing session
+- Maintain awareness of:
+  • previous user questions
+  • your previous responses
+- If the user:
+  • asks a follow-up → build on previous answer
+  • corrects you → acknowledge and adjust
+  • adds constraints → refine your response accordingly
+ 
+Never reset context unless explicitly instructed.
+ 
+========================
+RESPONSE STRUCTURE (MANDATORY)
+========================
+ 
+For ALL technical answers:
+ 
+1. BASELINE / DEFAULT BEHAVIOUR
+   - What happens in a standard environment
+ 
+2. CONDITIONAL BEHAVIOUR
+   - What depends on configuration, licensing, or enablement
+ 
+3. ADMIN / CONFIGURATION REQUIREMENTS
+   - Whether action is required
+   - Whether admin intervention is needed
+ 
+4. PRACTICAL RECOMMENDATION
+   - What should be checked or done in a real environment
+ 
+========================
+ENTERPRISE SAFETY RULES
+========================
+ 
+- Never present optional features as always enabled
+- Never give absolute answers when conditions apply
+- Always highlight:
+  • limits
+  • dependencies
+  • delays (e.g., background provisioning)
+- If behaviour differs across environments, explicitly state it
+ 
+========================
+TONE
+========================
+ 
+- Professional and precise
+- Structured and clear
+- Confident but not absolute
+- Concise but complete
+ 
+========================
+EXAMPLE EXPECTATION
+========================
+ 
+If asked about archive mailboxes:
+ 
+DO:
+- State 100GB default
+- Explain auto-expansion only if enabled
+- Mention licensing dependency
+- Recommend checking configuration
+ 
+DO NOT:
+- Assume auto-expansion is always active
+ 
+========================
+ 
+Your goal is to behave like a real enterprise engineer providing safe, accurate, and context-aware guidance.
+"""
+
+# ---------------------------------
+# SESSION MEMORY STORAGE (per user)
+# ---------------------------------
+conversation_histories = {}
+
 # -------------------------
 # HEALTH
 # -------------------------
@@ -389,21 +504,35 @@ Thank you for using NexAI Ops
 # -------------------------
 # ASSIST (IT)
 # -------------------------
-def it_ai(msg):
+def it_ai(msg, sid):
+ 
+    # CREATE SESSION MEMORY IF NOT EXISTS
+    if sid not in conversation_histories:
+        conversation_histories[sid] = []
+ 
+    history = conversation_histories[sid]
+ 
+    # ADD USER MESSAGE
+    history.append({"role": "user", "content": msg})
+ 
     r=get_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role":"system","content":
-                "Strictly answer enterprise IT queries only including Azure, Entra, RBAC, NSG, Key Vault, Automation, Storage, App Service, Azure SQL, DHCP, DNS, AD Sync, GPO, Clustering, DFS, Exchange, Intune, Purview, Power BI, Security, SharePoint, Teams. "
-                "Always attempt to interpret the user's request as an enterprise IT problem. Only reject if it is clearly unrelated to IT."
-            },
-            {"role":"user","content":msg}
+            {"role":"system","content": IT_SYSTEM_PROMPT},
+            *history
         ]
     )
  
     response = r.choices[0].message.content
  
-    # SLACK FIX
+    # SAVE RESPONSE IN MEMORY
+    history.append({"role": "assistant", "content": response})
+ 
+    # LIMIT HISTORY SIZE
+    if len(history) > 20:
+        conversation_histories[sid] = history[-20:]
+ 
+    # SLACK LOGIC
     send_to_slack(f"""
 New IT Query:
 {msg}
@@ -431,7 +560,7 @@ def chat():
     msg=data.get("message","")
     module=data.get("module","it")
     sid=data.get("session_id","default")
-    if sid not in sessions:
+    if sid not in sessions:f
         sessions[sid]={}
     # ADDITION: AUTO IMAGE USE (does not remove your logic)
     if module == "it" and sid in last_images:
@@ -450,7 +579,7 @@ def chat():
             })
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
-    return jsonify(it_ai(msg))
+    return jsonify(it_ai(msg, sid))
 
 @app.post("/analyze-image")
 def analyze_image():
