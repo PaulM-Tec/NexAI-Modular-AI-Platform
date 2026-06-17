@@ -256,7 +256,17 @@ function copyCode(button){
 /* SEND (UNCHANGED LOGIC) */
 function send(){
   const t = msgInput.value.trim();
+ 
+  // STOP CHAT CALL IF ONLY IMAGE
+  if(!t && pendingImages.length > 0){
+    pendingImages = [];
+    previewBar.innerHTML = "";
+    return;
+  }
+ 
+  // ORIGINAL CONDITION
   if(!t && pendingImages.length === 0) return;
+
   if(t) add(t, "user");
   pendingImages.forEach(src=>{
     const d = document.createElement("div");
