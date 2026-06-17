@@ -268,14 +268,7 @@ function send(){
   if(!t && pendingImages.length === 0) return;
 
   if(t) add(t, "user");
-  pendingImages.forEach(src=>{
-    const d = document.createElement("div");
-    d.className="msg user";
-    const img = document.createElement("img");
-    img.src = src;
-    d.appendChild(img);
-    chat.appendChild(d);
-  });
+
   const typing = document.createElement("div");
   typing.className = "msg bot";
   typing.innerText = "Typing...";
