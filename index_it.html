@@ -312,14 +312,38 @@ document.addEventListener("paste", e=>{
 });
 /* ONLY CHANGE: preview visible */
 function storeImage(file){
+ 
   const reader = new FileReader();
+ 
   reader.onload = e=>{
     const src = e.target.result;
+ 
+    // existing behaviour
     pendingImages.push(src);
+ 
     const img = document.createElement("img");
     img.src = src;
     previewBar.appendChild(img);
+ 
+    // NEW: SEND IMAGE TO BACKEND IMMEDIATELY
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("session_id", session);
+ 
+    fetch("/analyze-image", {
+      method: "POST",
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        add(data.text, "bot");  // bot response appears immediately
+    })
+    .catch(()=> {
+        add("Image upload failed", "bot");
+    });
+ 
   };
+ 
   reader.readAsDataURL(file);
 }
 function scrollDown(){
