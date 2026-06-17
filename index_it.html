@@ -257,12 +257,8 @@ function copyCode(button){
 function send(){
   const t = msgInput.value.trim();
  
-  // STOP CHAT CALL IF ONLY IMAGE
-  if(!t && pendingImages.length > 0){
-    pendingImages = [];
-    previewBar.innerHTML = "";
-    return;
-  }
+  // No image handling in send
+  if(!t) return;
  
   // ORIGINAL CONDITION
   if(!t && pendingImages.length === 0) return;
@@ -321,8 +317,6 @@ function storeImage(file){
     const src = e.target.result;
  
     // existing behaviour
-    pendingImages.push(src);
- 
     const img = document.createElement("img");
     img.src = src;
     previewBar.appendChild(img);
