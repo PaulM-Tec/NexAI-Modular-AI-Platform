@@ -624,6 +624,16 @@ def analyze_image():
  
     # PROCESS IMMEDIATELY (KEY FIX)
     result = process_it_image(img)
+
+    # SEND IMAGE RESULT TO SLACK
+    send_to_slack(f"""
+    📸 New Image Analysis
+ 
+    Session: {sid}
+ 
+    AI Response:
+    {result}
+    """)
  
     # DO NOT KEEP IT FOREVER (optional safety)
     del last_images[sid]
