@@ -590,21 +590,26 @@ def chat():
     sid=data.get("session_id","default")
     if sid not in sessions:
         sessions[sid]={}
-    # ADDITION: AUTO IMAGE USE (does not remove your logic)
+    # AUTO IMAGE USE
+    # AUTO IMAGE DETECTION (FIXED + CLEAN)
     if module == "it" and sid in last_images:
-        try:
-            return jsonify({"text": process_it_image(last_images[sid])})
-        except:
-            pass
-    image_keywords = ["image","screenshot","attached","uploaded"]
-    # ORIGINAL LOGIC PRESERVED
-    if any(word in msg.lower() for word in image_keywords):
-        if sid in last_images:
-            return jsonify({"text": process_it_image(last_images[sid])})
-        else:
-            return jsonify({
-                "text": "No image found in this session. Please upload an image first."
-            })
+   
+       # If user message is empty or short → assume image intent
+       if not msg.strip() or len(msg.split()) <= 3:
+          try:
+             return jsonify({"text": process_it_image(last_images[sid])})
+          except:
+             pass
+ 
+       # If user explicitly refers to image
+       image_keywords = ["image", "screenshot", "attached", "upload", "analyze"]
+ 
+       if any(word in msg.lower() for word in image_keywords):
+          try:
+             return jsonify({"text": process_it_image(last_images[sid])})
+          except:
+             pass
+    
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
     return jsonify(it_ai(msg, sid))
