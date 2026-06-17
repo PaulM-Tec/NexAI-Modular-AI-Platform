@@ -322,7 +322,6 @@ document.addEventListener("paste", e=>{
 });
 /* ONLY CHANGE: preview visible */
 function storeImage(file){
- 
   const reader = new FileReader();
  
   reader.onload = e=>{
@@ -335,7 +334,17 @@ function storeImage(file){
     img.src = src;
     previewBar.appendChild(img);
  
-    // NEW: SEND IMAGE TO BACKEND IMMEDIATELY
+    // Keep image
+    const d = document.createElement("div");
+    d.className = "msg user";
+ 
+    const chatImg = document.createElement("img");
+    chatImg.src = src;
+ 
+    d.appendChild(chatImg);
+    chat.appendChild(d);
+ 
+    // existing backend call
     const formData = new FormData();
     formData.append("image", file);
     formData.append("session_id", session);
@@ -346,12 +355,11 @@ function storeImage(file){
     })
     .then(res => res.json())
     .then(data => {
-        add(data.text, "bot");  // bot response appears immediately
+        add(data.text, "bot");
     })
-    .catch(()=> {
+    .catch(()=>{
         add("Image upload failed", "bot");
     });
- 
   };
  
   reader.readAsDataURL(file);
