@@ -611,13 +611,24 @@ def chat():
 
 @app.post("/analyze-image")
 def analyze_image():
-    file=request.files.get("image")
-    sid=request.form.get("session_id","default")
+    file = request.files.get("image")
+    sid = request.form.get("session_id", "default")
+ 
     if not file:
-        return {"text":"No image"}
-    img=base64.b64encode(file.read()).decode()
-    last_images[sid]=img
-    return {"text":process_it_image(img)}
+        return {"text": "No image"}
+ 
+    img = base64.b64encode(file.read()).decode()
+ 
+    # SAVE IMAGE
+    last_images[sid] = img
+ 
+    # PROCESS IMMEDIATELY (KEY FIX)
+    result = process_it_image(img)
+ 
+    # DO NOT KEEP IT FOREVER (optional safety)
+    del last_images[sid]
+ 
+    return {"text": result}
 
 @app.post("/upload")
 def upload():
