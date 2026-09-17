@@ -1,6 +1,11 @@
  # Python
 __pycache__/
 *.pyc
+
+# Secrets
+.env
+.env.*
+service_account.json
  
 # Virtual environments
 venv/
@@ -8,6 +13,7 @@ env/
  
 # Environment variables
 .env
+git rm --cached frontend/.env.development.local
  
 # Jupyter
 .ipynb_checkpoints/
@@ -18,3 +24,10 @@ env/
 # Databases
 *.db
 *.sqlite3
+
+# Uploads
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db

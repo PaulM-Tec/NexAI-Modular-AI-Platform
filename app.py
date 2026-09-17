@@ -30,6 +30,7 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 sessions = {}
 last_images = {}
+tutor_sessions = {}
 
 # -------------------------
 # IT System Prompt
@@ -172,6 +173,61 @@ Your goal is to behave like a real enterprise engineer providing safe, accurate,
 # SESSION MEMORY STORAGE (per user)
 # ---------------------------------
 conversation_histories = {}
+
+# -------------------------
+# TUTOR PROMPT
+# -------------------------
+TUTOR_SYSTEM_PROMPT = """
+You are NexAI Tutor.
+ 
+You are an experienced A-Level teacher.
+ 
+Your goal is not to provide answers immediately.
+ 
+Your purpose is to:
+- Teach
+- Assess understanding
+- Build confidence
+- Develop critical thinking
+- Prepare students for examinations
+ 
+Rules:
+ 
+1. Never immediately provide final answers.
+2. Ask questions to assess understanding.
+3. Encourage reasoning before solutions.
+4. Break difficult concepts into simple parts.
+5. Praise effort and guide mistakes constructively.
+6. Act like a patient teacher and mentor.
+ 
+You are currently teaching A-Level Chemistry according to the ZIMSEC curriculum.
+"""
+
+# -------------------------
+# CHEMISTRY DIAGNOSTIC
+# -------------------------
+CHEMISTRY_DIAGNOSTIC = [
+    "What is the difference between an atom and an ion?",
+    "What is meant by the term mole?",
+    "What is a covalent bond?",
+    "How does temperature affect the rate of reaction?",
+    "What is electronegativity?",
+    "What is an ester?",
+    "What is the difference between an element and a compound?"
+]
+
+# -------------------------
+# CHEMISTRY TOPICS
+# -------------------------
+CHEMISTRY_TOPICS = [
+    "Atomic Structure",
+    "Moles",
+    "Bonding",
+    "Reaction Rates",
+    "Electronegativity",
+    "Organic Chemistry",
+    "Elements and Compounds"
+]
 
 # -------------------------
 # HEALTH
@@ -530,6 +586,219 @@ Thank you for using NexAI Ops
     return {"text":response_text}
 
 # -------------------------
+# ANSWER ASSESSMENT
+# -------------------------
+def assess_answer(question, answer):
+ 
+    prompt = f"""
+You are an A-Level Chemistry teacher.
+ 
+Question:
+{question}
+ 
+Student Answer:
+{answer}
+ 
+Evaluate the answer.
+ 
+Return ONLY one of:
+ 
+GOOD
+PARTIAL
+WEAK
+"""
+ 
+    try:
+ 
+        r = get_client().chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a Chemistry examiner."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+ 
+        return r.choices[0].message.content.strip()
+ 
+    except:
+        return "PARTIAL"
+
+# -------------------------
+# TUTOR
+# -------------------------
+def tutor_ai(msg, sid):
+ 
+    if sid not in tutor_sessions:
+        tutor_sessions[sid] = {
+            "stage": "welcome",
+            "question": 0,
+            "profile": {},
+	    "diagnostic_results": []
+        }
+ 
+    session = tutor_sessions[sid]
+ 
+    # -------------------------
+    # STAGE 1
+    # STUDENT PROFILE
+    # -------------------------
+    if session["stage"] == "welcome":
+ 
+        session["stage"] = "name"
+ 
+        return {
+            "text":
+            "👋 Welcome to NexAI Tutor.\n\n"
+            "I am here to help you learn Chemistry like a real teacher.\n\n"
+            "Before we begin, what is your name?"
+        }
+ 
+    if session["stage"] == "name":
+ 
+        session["profile"]["name"] = msg
+ 
+        session["stage"] = "confidence"
+ 
+        return {
+            "text":
+            f"Nice to meet you, {msg} 😊\n\n"
+            "Before we start learning, I'd like to understand your current confidence level.\n\n"
+            "On a scale of 1 to 10, how confident are you in Chemistry?"
+        }
+ 
+    if session["stage"] == "confidence":
+ 
+        session["profile"]["confidence"] = msg
+ 
+        session["stage"] = "difficulty"
+ 
+        return {
+            "text":
+            "Which topic do you find most difficult?\n\n"
+            "You can say:\n"
+            "- Everything\n"
+            "- Organic Chemistry\n"
+            "- Reaction Rates\n"
+            "- Bonding\n"
+            "- Calculations\n"
+            "- Something else"
+        }
+ 
+    if session["stage"] == "difficulty":
+ 
+        session["profile"]["difficulty"] = msg
+ 
+        session["stage"] = "diagnostic"
+ 
+        return {
+            "text":
+            "Thank you.\n\n"
+            "I will now conduct a short Chemistry assessment.\n\n"
+            f"Question 1:\n\n{CHEMISTRY_DIAGNOSTIC[0]}"
+        }
+ 
+    # -------------------------
+    # STAGE 2
+    # DIAGNOSTIC
+    # -------------------------
+    if session["stage"] == "diagnostic":
+ 
+        current = session["question"]
+ 
+        assessment = assess_answer(
+            CHEMISTRY_DIAGNOSTIC[current],
+            msg
+        )
+ 
+        session["diagnostic_results"].append({
+            "topic": CHEMISTRY_TOPICS[current],
+            "question": CHEMISTRY_DIAGNOSTIC[current],
+            "answer": msg,
+            "assessment": assessment
+        })
+        
+        if current < len(CHEMISTRY_DIAGNOSTIC) - 1:
+ 
+            session["question"] += 1
+ 
+            next_question = CHEMISTRY_DIAGNOSTIC[
+                session["question"]
+            ]
+ 
+            return {
+                "text":
+                f"Thank you for your answer.\n\n"
+                f"Question {session['question'] + 1}:\n\n"
+                f"{next_question}"
+            }
+ 
+        session["stage"] = "assessment_complete"
+ 
+        good = sum(
+            1 for r in session["diagnostic_results"]
+            if r["assessment"] == "GOOD"
+        )
+ 
+        partial = sum(
+            1 for r in session["diagnostic_results"]
+            if r["assessment"] == "PARTIAL"
+        )
+ 
+        weak = sum(
+            1 for r in session["diagnostic_results"]
+            if r["assessment"] == "WEAK"
+        )
+        
+        strong_topics = [
+           r["topic"]
+           for r in session["diagnostic_results"]
+           if r["assessment"] == "GOOD"
+        ]
+ 
+        weak_topics = [
+            r["topic"]
+            for r in session["diagnostic_results"]
+            if r["assessment"] == "WEAK"
+        ]
+ 
+        recommended = weak_topics[0] if weak_topics else "Reaction Rates"
+ 
+        return {
+            "text":
+            f"""
+        ✅ Diagnostic Assessment Complete
+ 
+        👩‍🎓 Learning Profile
+ 
+        💪 Strong Areas
+ 
+        {"".join(f"✅ {t}\n" for t in strong_topics) if strong_topics else "✅ None identified"}
+ 
+        📈 Areas Needing Improvement
+ 
+        {"".join(f"⚠ {t}\n" for t in weak_topics) if weak_topics else "⚠ None identified"}
+ 
+        📊 Assessment Summary
+ 
+        ✅ Strong Answers: {good}
+        🟡 Partial Answers: {partial}
+        🔴 Weak Answers: {weak}
+ 
+        📚 Recommended Starting Topic
+ 
+        {recommended}
+ 
+        💭 Would you like me to begin teaching this topic?
+        """
+        }
+
+    return {
+        "text":
+        "Great! Teaching mode is the next phase we are building.\n\n"
+        "For now, the diagnostic assessment has successfully identified the topic we should focus on first."
+    }
+
+# -------------------------
 # ASSIST (IT)
 # -------------------------
 def it_ai(msg, sid):
@@ -582,6 +851,10 @@ def vehicle():
 def it():
     return send_from_directory(BASE_DIR, "index_it.html")
 
+@app.get("/tutor")
+def tutor():
+    return send_from_directory(BASE_DIR, "index_tutor.html")
+
 @app.post("/chat")
 def chat():
     data=request.get_json()
@@ -607,6 +880,10 @@ def chat():
     
     if module=="vehicle":
         return jsonify(vehicle_ai(msg,sessions[sid]))
+ 
+    if module=="tutor":
+        return jsonify(tutor_ai(msg, sid))
+ 
     return jsonify(it_ai(msg, sid))
 
 @app.post("/analyze-image")
